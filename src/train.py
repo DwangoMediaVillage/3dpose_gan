@@ -5,16 +5,13 @@
 from __future__ import print_function
 import argparse
 import multiprocessing
-import numpy as np
 import pickle
 import time
 
 import chainer
 import chainer.functions as F
-import chainer.links as L
 from chainer import training
 from chainer.training import extensions
-from chainer import serializers
 
 import os
 import sys
