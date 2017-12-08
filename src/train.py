@@ -25,6 +25,19 @@ from dataset import PoseDataset
 from updater import Updater
 from evaluator import Evaluator
 
+
+class WeightClipping(object):
+    name = 'WeightClipping'
+
+    def __init__(self, threshold):
+        self.threshold = threshold
+
+    def __call__(self, opt):
+        for param in opt.target.params():
+            xp = chainer.cuda.get_array_module(param.data)
+            param.data = xp.clip(param.data, -self.threshold, self.threshold)
+
+
 def create_result_dir(dir):
     if not os.path.exists('results'):
         os.mkdir('results')
@@ -39,43 +52,43 @@ def create_result_dir(dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='chainer implementation of pix2pix')
-    parser.add_argument('--n_class', type=int, default=20)
-    parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--resume', '-r', default='')
-
+    parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str, default='data/h3.6m')
     parser.add_argument('--l_latent', type=int, default=64)
     parser.add_argument('--l_seq', type=int, default=32)
     parser.add_argument('--gpu', '-g', type=int, default=0)
     parser.add_argument('--batchsize', '-b', type=int, default=16)
     parser.add_argument('--test_batchsize', type=int, default=32)
+    parser.add_argument('--resume', '-r', default='')
     parser.add_argument('--dir', type=str, default='')
     parser.add_argument('--epoch', '-e', type=int, default=200)
     parser.add_argument('--opt', type=str, default='Adam',
-                        choices=['Adam', 'NesterovAG'])
+                        choices=['Adam', 'NesterovAG', 'RMSprop'])
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--shift_interval', type=int, default=100)
     parser.add_argument('--bn', type=str, default='f', choices=['t', 'f'])
+    parser.add_argument('--batch_statistics', type=str, default='f', choices=['t', 'f'])
+    parser.add_argument('--train_mode', type=str, default='dcgan',
+                        choices=['dcgan', 'wgan', 'supervised'])
+    parser.add_argument('--act_func', type=str, default='leaky_relu')
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
+    args.batch_statistics = args.batch_statistics == 't'
+
+    # オプションの保存
     with open(os.path.join(args.dir, 'options.pickle'), 'wb') as f:
         pickle.dump(args, f)
 
-    print('GPU: {}'.format(args.gpu))
-    print('# Minibatch-size: {}'.format(args.batchsize))
-    print('# epoch: {}'.format(args.epoch))
-    print('')
-
-    # Set up a neural network to train
-    gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator', bn=args.bn)
-    dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator', bn=False)
-    if args.gpu >= 0:
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-        chainer.cuda.get_device(0).use()  # Make a specified GPU current
-        gen.to_gpu()
-        dis.to_gpu()
+    # モデルのセットアップ
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+    chainer.cuda.get_device(0).use()
+    gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
+                 bn=args.bn, activate_func=getattr(F, args.act_func))
+    dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
+                 bn=False, activate_func=getattr(F, args.act_func))
+    gen.to_gpu()
+    dis.to_gpu()
 
     # Setup an optimizer
     def make_optimizer(model):
@@ -87,12 +100,19 @@ def main():
             optimizer = chainer.optimizers.NesterovAG(lr=args.lr, momentum=0.9)
             optimizer.setup(model)
             optimizer.add_hook(chainer.optimizer.WeightDecay(1e-4))
+        elif args.opt == 'RMSprop':
+            optimizer = chainer.optimizers.RMSprop(5e-5)
+            optimizer.setup(model)
+            optimizer.add_hook(chainer.optimizer.GradientClipping(1))
         else:
             raise NotImplementedError
         return optimizer
     opt_gen = make_optimizer(gen)
     opt_dis = make_optimizer(dis)
+    if args.opt == 'RMSprop':
+        opt_dis.add_hook(WeightClipping(0.01))
 
+    # データセットの読み込み
     train = PoseDataset(args.root, length=args.l_seq, train=True)
     test = PoseDataset(args.root, length=args.l_seq, train=False)
     multiprocessing.set_start_method('spawn')
@@ -102,6 +122,8 @@ def main():
 
     # Set up a trainer
     updater = Updater(
+        mode=args.train_mode,
+        batch_statistics=args.batch_statistics,
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
         optimizer={'gen': opt_gen, 'dis': opt_dis},

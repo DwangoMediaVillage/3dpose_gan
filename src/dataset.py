@@ -24,7 +24,7 @@ class PoseDataset(chainer.dataset.DatasetMixin):
             for npy_path in npy_paths:
                 basename = os.path.basename(npy_path)
                 action = os.path.splitext(basename)[0]
-                npy = np.load(npy_path)[::2]  # ここ修正する？
+                npy = np.load(npy_path)[::2]  # ダウンサンプリング
                 L = len(npy)
 
                 key = os.path.join(dirname, action)

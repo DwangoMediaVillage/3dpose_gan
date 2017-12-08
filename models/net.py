@@ -23,7 +23,7 @@ class ConvAE(chainer.Chain):
         self.mode = mode
         self.activate_func = activate_func
         with self.init_scope():
-            self.conv1 = L.Convolution2D(1, 32, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
+            self.conv1 = L.Convolution2D(None, 32, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
             self.conv2 = L.Convolution2D(32, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
             self.conv3 = L.Convolution2D(64, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
             self.conv4 = L.Convolution2D(64, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))

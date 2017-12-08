@@ -76,8 +76,9 @@ if __name__ == '__main__':
     l_seq = options.l_seq
 
     imgs = np.zeros((l_seq, 350 * col, 600 * row, 3), dtype=np.uint8)
-    model = models.net.ConvAE(l_latent=64, l_seq=l_seq)
-
+    model = models.net.ConvAE(
+        l_latent=64, l_seq=l_seq, mode='generator',
+        bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
     train = dataset.PoseDataset('data/h3.6m', length=l_seq, train=False)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
