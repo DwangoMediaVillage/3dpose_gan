@@ -15,6 +15,7 @@ from chainer.training import extensions
 
 import os
 import sys
+
 sys.path.append(os.getcwd())
 from models.net import ConvAE
 from dataset import PoseDataset
@@ -68,6 +69,7 @@ def main():
     parser.add_argument('--train_mode', type=str, default='dcgan',
                         choices=['dcgan', 'wgan', 'supervised'])
     parser.add_argument('--act_func', type=str, default='leaky_relu')
+    parser.add_argument('--dcgan_accuracy_cap', type=float, default=1.0, help="Disのaccuracyがこれを超えると更新しない手加減")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -104,6 +106,7 @@ def main():
         else:
             raise NotImplementedError
         return optimizer
+
     opt_gen = make_optimizer(gen)
     opt_dis = make_optimizer(dis)
     if args.opt == 'RMSprop':
@@ -124,7 +127,9 @@ def main():
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
         optimizer={'gen': opt_gen, 'dis': opt_dis},
-        device=0)
+        device=0,
+        dcgan_accuracy_cap=args.dcgan_accuracy_cap
+    )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
 
     log_interval = (1, 'epoch')
@@ -146,7 +151,7 @@ def main():
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
-        'gen/loss', 'dis/loss', 'validation/gen/mse'
+        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real', 'dis/acc/fake', 'validation/gen/mse'
     ]), trigger=log_interval)
     trainer.extend(extensions.ProgressBar(update_interval=10))
 
@@ -156,6 +161,7 @@ def main():
 
     # Run the training
     trainer.run()
+
 
 if __name__ == '__main__':
     main()
