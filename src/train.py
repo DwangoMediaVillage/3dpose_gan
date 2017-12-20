@@ -93,9 +93,9 @@ def main():
     # Setup an optimizer
     def make_optimizer(model):
         if args.opt == 'Adam':
-            optimizer = chainer.optimizers.Adam(alpha=2e-2, beta1=0.5)
+            optimizer = chainer.optimizers.Adam(alpha=2e-4, beta1=0.5)
             optimizer.setup(model)
-            # optimizer.add_hook(chainer.optimizer.WeightDecay(1e-5))
+            optimizer.add_hook(chainer.optimizer.WeightDecay(1e-5))
         elif args.opt == 'NesterovAG':
             optimizer = chainer.optimizers.NesterovAG(lr=args.lr, momentum=0.9)
             optimizer.setup(model)
