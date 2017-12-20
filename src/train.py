@@ -12,6 +12,8 @@ import chainer
 import chainer.functions as F
 from chainer import training
 from chainer.training import extensions
+import chainerui.extensions
+import chainerui.utils
 
 import os
 import sys
@@ -126,14 +128,20 @@ def main():
         batch_statistics=args.batch_statistics,
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
-        optimizer={'gen': opt_gen, 'dis': opt_dis},
+        optimizer={
+            'main': opt_gen, # for chainerui
+            'gen': opt_gen,
+            'dis': opt_dis
+        },
         device=0,
         dcgan_accuracy_cap=args.dcgan_accuracy_cap
     )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
+    trainer.extend(chainerui.extensions.CommandsExtension())
+
 
     log_interval = (1, 'epoch')
-    snapshot_interval = (1, 'epoch')
+    snapshot_interval = (10, 'epoch')
 
     if args.opt == 'NesterovAG':
         trainer.extend(
@@ -154,6 +162,7 @@ def main():
         'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real', 'dis/acc/fake', 'validation/gen/mse'
     ]), trigger=log_interval)
     trainer.extend(extensions.ProgressBar(update_interval=10))
+    chainerui.utils.save_args(args, args.dir)
 
     if args.resume:
         # Resume from a snapshot
