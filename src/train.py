@@ -78,7 +78,6 @@ def main():
         pickle.dump(args, f)
 
     # モデルのセットアップ
-    print(args.gpu)
     if args.gpu >= 0:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
         chainer.cuda.get_device(0).use()
