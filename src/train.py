@@ -78,21 +78,24 @@ def main():
         pickle.dump(args, f)
 
     # モデルのセットアップ
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-    chainer.cuda.get_device(0).use()
+    print(args.gpu)
+    if args.gpu >= 0:
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+        chainer.cuda.get_device(0).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
                  bn=args.bn, activate_func=getattr(F, args.act_func))
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
                  bn=False, activate_func=getattr(F, args.act_func))
-    gen.to_gpu()
-    dis.to_gpu()
+    if args.gpu >= 0:
+        gen.to_gpu()
+        dis.to_gpu()
 
     # Setup an optimizer
     def make_optimizer(model):
         if args.opt == 'Adam':
-            optimizer = chainer.optimizers.Adam(alpha=2e-4, beta1=0.5)
+            optimizer = chainer.optimizers.Adam(alpha=2e-2, beta1=0.5)
             optimizer.setup(model)
-            optimizer.add_hook(chainer.optimizer.WeightDecay(1e-5))
+            # optimizer.add_hook(chainer.optimizer.WeightDecay(1e-5))
         elif args.opt == 'NesterovAG':
             optimizer = chainer.optimizers.NesterovAG(lr=args.lr, momentum=0.9)
             optimizer.setup(model)
@@ -124,7 +127,8 @@ def main():
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
         optimizer={'gen': opt_gen, 'dis': opt_dis},
-        device=0)
+        device=args.gpu
+    )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
 
     log_interval = (1, 'epoch')

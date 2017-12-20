@@ -38,9 +38,9 @@ class Updater(chainer.training.StandardUpdater):
         # Random rotation.
         theta = np.random.uniform(0, 2 * np.pi, len(xy)).astype(np.float32)
         cos_theta = np.broadcast_to(np.cos(theta), z_pred.shape[::-1])
-        cos_theta = Variable(cuda.to_gpu(cos_theta.transpose(3, 2, 1, 0)))
+        cos_theta = Variable(self.gen.xp.array(cos_theta.transpose(3, 2, 1, 0)))
         sin_theta = np.broadcast_to(np.sin(theta), z_pred.shape[::-1])
-        sin_theta = Variable(cuda.to_gpu(sin_theta.transpose(3, 2, 1, 0)))
+        sin_theta = Variable(self.gen.xp.array(sin_theta.transpose(3, 2, 1, 0)))
 
         # 2D Projection.
         x = xy[:, :, :, :17]
