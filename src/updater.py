@@ -13,7 +13,7 @@ import numpy as np
 
 
 class Updater(chainer.training.StandardUpdater):
-    def __init__(self, *args, dcgan_accuracy_cap, **kwargs):
+    def __init__(self, dcgan_accuracy_cap, *args, **kwargs):
         self.dcgan_accuracy_cap = dcgan_accuracy_cap
         self.mode = kwargs.pop('mode')
         self.batch_statistics = kwargs.pop('batch_statistics')

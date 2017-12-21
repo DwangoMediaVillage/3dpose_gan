@@ -83,12 +83,11 @@ def main():
 
     # モデルのセットアップ
     if args.gpu >= 0:
-        # os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
         chainer.cuda.get_device(args.gpu).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
-                 bn=args.bn, activate_func=getattr(F, args.act_func))
+                 bn=args.bn, activate_func=getattr(F, args.act_func), vertical_ksize=1)
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
-                 bn=False, activate_func=getattr(F, args.act_func))
+                 bn=False, activate_func=getattr(F, args.act_func), vertical_ksize=1)
     if args.gpu >= 0:
         gen.to_gpu()
         dis.to_gpu()
@@ -96,9 +95,9 @@ def main():
     # Setup an optimizer
     def make_optimizer(model):
         if args.opt == 'Adam':
-            optimizer = chainer.optimizers.Adam(alpha=2e-2, beta1=0.5)
+            optimizer = chainer.optimizers.Adam(alpha=2e-4, beta1=0.5)
             optimizer.setup(model)
-            # optimizer.add_hook(chainer.optimizer.WeightDecay(1e-5))
+            optimizer.add_hook(chainer.optimizer.WeightDecay(1e-5))
         elif args.opt == 'NesterovAG':
             optimizer = chainer.optimizers.NesterovAG(lr=args.lr, momentum=0.9)
             optimizer.setup(model)
