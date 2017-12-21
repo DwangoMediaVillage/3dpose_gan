@@ -9,9 +9,8 @@ import chainer.links as L
 
 
 class ConvAE(chainer.Chain):
-
     def __init__(self, l_latent=64, l_seq=32, mode='generator', bn=False,
-                 activate_func=F.leaky_relu):
+                 activate_func=F.leaky_relu, vertical_ksize=1):
 
         if l_seq % 32 != 0:
             raise ValueError('\'l_seq\' must be divisible by 32.')
@@ -22,21 +21,22 @@ class ConvAE(chainer.Chain):
         self.bn = bn
         self.mode = mode
         self.activate_func = activate_func
+        w = chainer.initializers.Normal(1e-5)
         with self.init_scope():
-            self.conv1 = L.Convolution2D(None, 32, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-            self.conv2 = L.Convolution2D(32, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-            self.conv3 = L.Convolution2D(64, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-            self.conv4 = L.Convolution2D(64, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-            self.conv5 = L.Convolution2D(64, 128, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-            self.enc_l = L.Linear(128 * 34 * l_seq // 32, l_latent)
+            self.conv1 = L.Convolution2D(None, 32, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+            self.conv2 = L.Convolution2D(32, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+            self.conv3 = L.Convolution2D(64, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+            self.conv4 = L.Convolution2D(64, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+            self.conv5 = L.Convolution2D(64, 128, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+            self.enc_l = L.Linear(128 * 34 * l_seq // 32, l_latent, initialW=w)
 
             if self.mode == 'generator':
-                self.dec_l = L.Linear(l_latent, 128 * 17 * l_seq // 32)
-                self.deconv1 = L.Deconvolution2D(128, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-                self.deconv2 = L.Deconvolution2D(64, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-                self.deconv3 = L.Deconvolution2D(64, 64, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-                self.deconv4 = L.Deconvolution2D(64, 32, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
-                self.deconv5 = L.Deconvolution2D(32, 1, ksize=(4, 1), stride=(2, 1), pad=(1, 0))
+                self.dec_l = L.Linear(l_latent, 128 * 17 * l_seq // 32, initialW=w)
+                self.deconv1 = L.Deconvolution2D(128, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+                self.deconv2 = L.Deconvolution2D(64, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+                self.deconv3 = L.Deconvolution2D(64, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+                self.deconv4 = L.Deconvolution2D(64, 32, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
+                self.deconv5 = L.Deconvolution2D(32, 1, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
 
             if self.bn:
                 self.enc_bn1 = L.BatchNormalization(32)

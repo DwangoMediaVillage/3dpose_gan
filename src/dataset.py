@@ -49,7 +49,9 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         key = os.path.join(dirname, action)
         npy = self.npys[key]
 
+
         normalized_xyz = []
+        # TODO(kogaki): forではなくarrayのまま処理できるように(CPU使いすぎ)
         for j in range(length):
             a = npy[start_pos + j].copy()
 
@@ -101,6 +103,9 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         normalized_xyz = np.array(normalized_xyz)
         xy = normalized_xyz[:, :, :2].transpose(0, 2, 1)
         xy = xy.reshape(length, -1)[None, :, :].astype(np.float32)
+
+        xymix = np.concatenate((xy[:, :, 0::2], xy[:, :, 1::2]), axis=2)
+
         z = normalized_xyz[:, :, 2]
         z = z.reshape(length, -1)[None, :, :].astype(np.float32)
-        return xy, z
+        return xymix, z

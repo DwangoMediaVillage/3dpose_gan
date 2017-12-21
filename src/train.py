@@ -82,10 +82,9 @@ def main():
         pickle.dump(args, f)
 
     # モデルのセットアップ
-    print(args.gpu)
     if args.gpu >= 0:
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-        chainer.cuda.get_device(0).use()
+        # os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+        chainer.cuda.get_device(args.gpu).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
                  bn=args.bn, activate_func=getattr(F, args.act_func))
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
@@ -132,7 +131,6 @@ def main():
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
         optimizer={
-            'main': opt_gen, # for chainerui
             'gen': opt_gen,
             'dis': opt_dis
         },
@@ -141,7 +139,6 @@ def main():
     )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
     trainer.extend(chainerui.extensions.CommandsExtension())
-
 
     log_interval = (1, 'epoch')
     snapshot_interval = (10, 'epoch')
@@ -153,7 +150,7 @@ def main():
         trainer.extend(
             extensions.ExponentialShift('lr', 0.1, optimizer=opt_dis),
             trigger=(args.shift_interval, 'epoch'))
-    trainer.extend(Evaluator(test_iter, {'gen': gen}, device=0),
+    trainer.extend(Evaluator(test_iter, {'gen': gen}, device=args.gpu),
                    trigger=log_interval)
     trainer.extend(extensions.snapshot_object(
         gen, 'gen_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)
