@@ -7,7 +7,6 @@ import copy
 import chainer
 from chainer import function
 import chainer.functions as F
-from chainer import cuda
 from chainer import reporter as reporter_module
 from chainer.training import extensions
 

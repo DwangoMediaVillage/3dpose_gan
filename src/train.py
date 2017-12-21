@@ -5,19 +5,19 @@
 from __future__ import print_function
 import argparse
 import multiprocessing
-import numpy as np
 import pickle
 import time
 
 import chainer
 import chainer.functions as F
-import chainer.links as L
 from chainer import training
 from chainer.training import extensions
-from chainer import serializers
+import chainerui.extensions
+import chainerui.utils
 
 import os
 import sys
+
 sys.path.append(os.getcwd())
 from models.net import ConvAE
 from dataset import PoseDataset
@@ -71,6 +71,8 @@ def main():
     parser.add_argument('--train_mode', type=str, default='dcgan',
                         choices=['dcgan', 'wgan', 'supervised'])
     parser.add_argument('--act_func', type=str, default='leaky_relu')
+    parser.add_argument('--vertical_ksize', type=int, default=1)
+    parser.add_argument('--dcgan_accuracy_cap', type=float, default=1.0, help="Disのaccuracyがこれを超えると更新しない手加減")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -81,14 +83,15 @@ def main():
         pickle.dump(args, f)
 
     # モデルのセットアップ
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-    chainer.cuda.get_device(0).use()
+    if args.gpu >= 0:
+        chainer.cuda.get_device(args.gpu).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
-                 bn=args.bn, activate_func=getattr(F, args.act_func))
+                 bn=args.bn, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
-                 bn=False, activate_func=getattr(F, args.act_func))
-    gen.to_gpu()
-    dis.to_gpu()
+                 bn=False, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
+    if args.gpu >= 0:
+        gen.to_gpu()
+        dis.to_gpu()
 
     # Setup an optimizer
     def make_optimizer(model):
@@ -107,6 +110,7 @@ def main():
         else:
             raise NotImplementedError
         return optimizer
+
     opt_gen = make_optimizer(gen)
     opt_dis = make_optimizer(dis)
     if args.opt == 'RMSprop':
@@ -127,11 +131,14 @@ def main():
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
         optimizer={'gen': opt_gen, 'dis': opt_dis},
-        device=0)
+        device=args.gpu,
+        dcgan_accuracy_cap=args.dcgan_accuracy_cap
+    )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
+    trainer.extend(chainerui.extensions.CommandsExtension())
 
     log_interval = (1, 'epoch')
-    snapshot_interval = (1, 'epoch')
+    snapshot_interval = (10, 'epoch')
 
     if args.opt == 'NesterovAG':
         trainer.extend(
@@ -140,7 +147,7 @@ def main():
         trainer.extend(
             extensions.ExponentialShift('lr', 0.1, optimizer=opt_dis),
             trigger=(args.shift_interval, 'epoch'))
-    trainer.extend(Evaluator(test_iter, {'gen': gen}, device=0),
+    trainer.extend(Evaluator(test_iter, {'gen': gen}, device=args.gpu),
                    trigger=log_interval)
     trainer.extend(extensions.snapshot_object(
         gen, 'gen_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)
@@ -149,9 +156,10 @@ def main():
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
-        'gen/loss', 'dis/loss', 'validation/gen/mse'
+        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real', 'dis/acc/fake', 'validation/gen/mse'
     ]), trigger=log_interval)
     trainer.extend(extensions.ProgressBar(update_interval=10))
+    chainerui.utils.save_args(args, args.dir)
 
     if args.resume:
         # Resume from a snapshot
@@ -159,6 +167,7 @@ def main():
 
     # Run the training
     trainer.run()
+
 
 if __name__ == '__main__':
     main()
