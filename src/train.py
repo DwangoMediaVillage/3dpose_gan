@@ -71,6 +71,7 @@ def main():
     parser.add_argument('--train_mode', type=str, default='dcgan',
                         choices=['dcgan', 'wgan', 'supervised'])
     parser.add_argument('--act_func', type=str, default='leaky_relu')
+    parser.add_argument('--vertical_ksize', type=int, default=1)
     parser.add_argument('--dcgan_accuracy_cap', type=float, default=1.0, help="Disのaccuracyがこれを超えると更新しない手加減")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
@@ -85,9 +86,9 @@ def main():
     if args.gpu >= 0:
         chainer.cuda.get_device(args.gpu).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
-                 bn=args.bn, activate_func=getattr(F, args.act_func), vertical_ksize=1)
+                 bn=args.bn, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
-                 bn=False, activate_func=getattr(F, args.act_func), vertical_ksize=1)
+                 bn=False, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
     if args.gpu >= 0:
         gen.to_gpu()
         dis.to_gpu()

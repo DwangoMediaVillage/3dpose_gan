@@ -101,11 +101,9 @@ class PoseDataset(chainer.dataset.DatasetMixin):
 
             normalized_xyz.append(a4)
         normalized_xyz = np.array(normalized_xyz)
-        xy = normalized_xyz[:, :, :2].transpose(0, 2, 1)
+        xy = normalized_xyz[:, :, :2]
         xy = xy.reshape(length, -1)[None, :, :].astype(np.float32)
-
-        xymix = np.concatenate((xy[:, :, 0::2], xy[:, :, 1::2]), axis=2)
 
         z = normalized_xyz[:, :, 2]
         z = z.reshape(length, -1)[None, :, :].astype(np.float32)
-        return xymix, z
+        return xy, z
