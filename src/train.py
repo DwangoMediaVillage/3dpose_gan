@@ -71,6 +71,7 @@ def main():
     parser.add_argument('--train_mode', type=str, default='dcgan',
                         choices=['dcgan', 'wgan', 'supervised'])
     parser.add_argument('--act_func', type=str, default='leaky_relu')
+    parser.add_argument('--vertical_ksize', type=int, default=1)
     parser.add_argument('--dcgan_accuracy_cap', type=float, default=1.0, help="Disのaccuracyがこれを超えると更新しない手加減")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
@@ -83,12 +84,11 @@ def main():
 
     # モデルのセットアップ
     if args.gpu >= 0:
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-        chainer.cuda.get_device(0).use()
+        chainer.cuda.get_device(args.gpu).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
-                 bn=args.bn, activate_func=getattr(F, args.act_func))
+                 bn=args.bn, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
-                 bn=False, activate_func=getattr(F, args.act_func))
+                 bn=False, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
     if args.gpu >= 0:
         gen.to_gpu()
         dis.to_gpu()
@@ -137,7 +137,6 @@ def main():
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
     trainer.extend(chainerui.extensions.CommandsExtension())
 
-
     log_interval = (1, 'epoch')
     snapshot_interval = (10, 'epoch')
 
@@ -148,7 +147,7 @@ def main():
         trainer.extend(
             extensions.ExponentialShift('lr', 0.1, optimizer=opt_dis),
             trigger=(args.shift_interval, 'epoch'))
-    trainer.extend(Evaluator(test_iter, {'gen': gen}, device=0),
+    trainer.extend(Evaluator(test_iter, {'gen': gen}, device=args.gpu),
                    trigger=log_interval)
     trainer.extend(extensions.snapshot_object(
         gen, 'gen_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)

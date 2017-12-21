@@ -13,7 +13,7 @@ import numpy as np
 
 
 class Updater(chainer.training.StandardUpdater):
-    def __init__(self, *args, dcgan_accuracy_cap, **kwargs):
+    def __init__(self, dcgan_accuracy_cap, *args, **kwargs):
         self.dcgan_accuracy_cap = dcgan_accuracy_cap
         self.mode = kwargs.pop('mode')
         self.batch_statistics = kwargs.pop('batch_statistics')
@@ -43,8 +43,8 @@ class Updater(chainer.training.StandardUpdater):
         sin_theta = Variable(self.gen.xp.array(sin_theta.transpose(3, 2, 1, 0)))
 
         # 2D Projection.
-        x = xy[:, :, :, :17]
-        y = xy[:, :, :, 17:]
+        x = xy[:, :, :, 0::2]
+        y = xy[:, :, :, 1::2]
         xy_fake = F.concat((x * cos_theta + z_pred * sin_theta, y), axis=3)
 
         if self.batch_statistics:
