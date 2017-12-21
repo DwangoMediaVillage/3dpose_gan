@@ -13,8 +13,8 @@ import numpy as np
 
 
 class Updater(chainer.training.StandardUpdater):
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, dcgan_accuracy_cap, **kwargs):
+        self.dcgan_accuracy_cap = dcgan_accuracy_cap
         self.mode = kwargs.pop('mode')
         self.batch_statistics = kwargs.pop('batch_statistics')
         if not self.mode in ['dcgan', 'wgan', 'supervised']:
@@ -62,20 +62,26 @@ class Updater(chainer.training.StandardUpdater):
             chainer.report({'mse': mse}, gen)
 
         elif self.mode == 'dcgan':
+            acc_dis_fake = F.binary_accuracy(y_fake, dis.xp.zeros(y_fake.data.shape, dtype=int))
+            acc_dis_real = F.binary_accuracy(y_real, dis.xp.ones(y_real.data.shape, dtype=int))
+            acc_dis = (acc_dis_fake + acc_dis_real) / 2
+
             loss_gen = F.sum(F.softplus(-y_fake)) / batchsize
             gen.cleargrads()
-            loss_gen.backward()
-            gen_optimizer.update()
+            if acc_dis.data >= (1 - self.dcgan_accuracy_cap):
+                loss_gen.backward()
+                gen_optimizer.update()
             xy_fake.unchain_backward()
 
             loss_dis = F.sum(F.softplus(-y_real)) / batchsize
             loss_dis += F.sum(F.softplus(y_fake)) / batchsize
             dis.cleargrads()
-            loss_dis.backward()
-            dis_optimizer.update()
+            if acc_dis.data <= self.dcgan_accuracy_cap:
+                loss_dis.backward()
+                dis_optimizer.update()
 
             chainer.report({'loss': loss_gen, 'mse': mse}, gen)
-            chainer.report({'loss': loss_dis}, dis)
+            chainer.report({'loss': loss_dis, 'acc': acc_dis, 'acc/fake': acc_dis_fake, 'acc/real': acc_dis_real}, dis)
 
         elif self.mode == 'wgan':
             y_real = F.sum(y_real) / batchsize
@@ -104,6 +110,7 @@ class Updater(chainer.training.StandardUpdater):
 
         else:
             raise NotImplementedError
+
 
 def concat_stat(x):
     mean = F.mean(x, axis=0)
