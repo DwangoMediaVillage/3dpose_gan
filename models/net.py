@@ -21,7 +21,7 @@ class ConvAE(chainer.Chain):
         self.bn = bn
         self.mode = mode
         self.activate_func = activate_func
-        w = chainer.initializers.Normal(1e-5)
+        w = chainer.initializers.Normal(0.02)
         with self.init_scope():
             self.conv1 = L.Convolution2D(None, 32, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
             self.conv2 = L.Convolution2D(32, 64, ksize=(4, vertical_ksize), stride=(2, 1), pad=(1, (vertical_ksize-1)//2), initialW=w)
