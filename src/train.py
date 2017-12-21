@@ -82,14 +82,16 @@ def main():
         pickle.dump(args, f)
 
     # モデルのセットアップ
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-    chainer.cuda.get_device(0).use()
+    if args.gpu >= 0:
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+        chainer.cuda.get_device(0).use()
     gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
                  bn=args.bn, activate_func=getattr(F, args.act_func))
     dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
                  bn=False, activate_func=getattr(F, args.act_func))
-    gen.to_gpu()
-    dis.to_gpu()
+    if args.gpu >= 0:
+        gen.to_gpu()
+        dis.to_gpu()
 
     # Setup an optimizer
     def make_optimizer(model):
@@ -128,12 +130,8 @@ def main():
         batch_statistics=args.batch_statistics,
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
-        optimizer={
-            'main': opt_gen, # for chainerui
-            'gen': opt_gen,
-            'dis': opt_dis
-        },
-        device=0,
+        optimizer={'gen': opt_gen, 'dis': opt_dis},
+        device=args.gpu,
         dcgan_accuracy_cap=args.dcgan_accuracy_cap
     )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
