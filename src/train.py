@@ -129,10 +129,7 @@ def main():
         batch_statistics=args.batch_statistics,
         models=(gen, dis),
         iterator={'main': train_iter, 'test': test_iter},
-        optimizer={
-            'gen': opt_gen,
-            'dis': opt_dis
-        },
+        optimizer={'gen': opt_gen, 'dis': opt_dis},
         device=args.gpu,
         dcgan_accuracy_cap=args.dcgan_accuracy_cap
     )
