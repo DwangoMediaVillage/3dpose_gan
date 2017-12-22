@@ -2,17 +2,17 @@
 
 ## 動作環境
   - Python 3.6.1
-  - Chainer 2.1.0
-  - Cupy 1.0.3
+  - Cupy 2.2.0
+  - Chainer 3.2.0
+  - ChainerUI 0.1.0
   - ProgressBar2 2.7.3 (動画作成時)
   - OpenCV 3.1.0 with ffmpeg (動画作成時)
 
 ## セットアップ
   - シンボリックリンクの作成
     ```
-    git clone https://github.com/yasunorikudo/3d_pose.git
-    cd 3d_pose
-    git checkout dmv
+    git clone https://github.com/DwangoMediaVillage/3dpose_gan.git
+    cd 3dpose_gan
     mkdir data
     ln -s /mnt/dataset/h36m/h3.6m/dataset data/h3.6m
     ```
@@ -26,7 +26,8 @@
       --epoch 500 \
       --opt Adam \
       --bn f \
-      --train_mode dcgan
+      --train_mode dcgan \
+      --dcgan_accuracy_cap 0.9
     ```
 
   - DCGAN with Batch Normalization in Discriminator
