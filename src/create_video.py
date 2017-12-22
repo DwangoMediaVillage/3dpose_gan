@@ -40,8 +40,8 @@ def color_jet(x):
 def create_img(k, j, i, variable):
     ps = np.array([0,1,2,0,4,5,0,7,8,9,8,11,12,8,14,15])
     qs = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16])
-    xs = variable.data[j, 0, i, :17].copy()
-    ys = variable.data[j, 0, i, 17:].copy()
+    xs = variable.data[j, 0, i, 0::2].copy()
+    ys = variable.data[j, 0, i, 1::2].copy()
     xs *= 100
     xs += 100
     ys *= -100
@@ -93,10 +93,20 @@ if __name__ == '__main__':
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
             cos_theta = Variable(np.broadcast_to(np.cos(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
             sin_theta = Variable(np.broadcast_to(np.sin(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
-            x = xy[:, :, :, :17]
-            y = xy[:, :, :, 17:]
-            real = F.concat((x * cos_theta + z * sin_theta, y), axis=3)
-            fake = F.concat((x * cos_theta + z_pred * sin_theta, y), axis=3)
+            x = xy[:, :, :, 0::2]
+            y = xy[:, :, :, 1::2]
+
+            xx = x * cos_theta + z * sin_theta
+            xx = xx[:, :, :, :, None]
+            yy = y[:, :, :, :, None]
+            real = F.concat((xx, yy), axis=4)
+            real = F.reshape(real, (*y.shape[:3], -1))
+
+            xx = x * cos_theta + z_pred * sin_theta
+            xx = xx[:, :, :, :, None]
+            yy = y[:, :, :, :, None]
+            fake = F.concat((xx, yy), axis=4)
+            fake = F.reshape(fake, (*y.shape[:3], -1))
 
             for j in range(row):
                 for i in range(l_seq):

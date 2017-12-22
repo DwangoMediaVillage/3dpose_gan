@@ -45,7 +45,11 @@ class Updater(chainer.training.StandardUpdater):
         # 2D Projection.
         x = xy[:, :, :, 0::2]
         y = xy[:, :, :, 1::2]
-        xy_fake = F.concat((x * cos_theta + z_pred * sin_theta, y), axis=3)
+        xx = x * cos_theta + z_pred * sin_theta
+        xx = xx[:, :, :, :, None]
+        yy = y[:, :, :, :, None]
+        xy_fake = F.concat((xx, yy), axis=4)
+        xy_fake = F.reshape(xy_fake, (*y.shape[:3], -1))
 
         if self.batch_statistics:
             xy = concat_stat(xy)
