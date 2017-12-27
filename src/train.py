@@ -153,6 +153,10 @@ def main():
         gen, 'gen_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)
     trainer.extend(extensions.snapshot_object(
         dis, 'dis_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)
+    trainer.extend(extensions.snapshot_object(
+        opt_gen, 'opt_gen_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)
+    trainer.extend(extensions.snapshot_object(
+        opt_dis, 'opt_dis_epoch_{.updater.epoch}.npz'), trigger=snapshot_interval)
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
@@ -162,8 +166,16 @@ def main():
     chainerui.utils.save_args(args, args.dir)
 
     if args.resume:
+        import glob
+        import re
         # Resume from a snapshot
-        chainer.serializers.load_npz(args.resume, trainer)
+        epochs = [int(re.search('gen_epoch_(.*).npz', path).group(1)) for path in
+                  glob.glob(os.path.join(args.resume, 'gen_epoch_*.npz'))]
+        max_epoch = max(epochs)
+        chainer.serializers.load_npz(os.path.join(args.resume, 'gen_epoch_{}.npz'.format(max_epoch)), gen)
+        chainer.serializers.load_npz(os.path.join(args.resume, 'dis_epoch_{}.npz'.format(max_epoch)), dis)
+        chainer.serializers.load_npz(os.path.join(args.resume, 'opt_gen_epoch_{}.npz'.format(max_epoch)), opt_gen)
+        chainer.serializers.load_npz(os.path.join(args.resume, 'opt_dis_epoch_{}.npz'.format(max_epoch)), opt_dis)
 
     # Run the training
     trainer.run()
