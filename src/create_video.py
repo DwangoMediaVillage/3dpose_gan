@@ -9,6 +9,8 @@ import os
 import pickle
 from progressbar import ProgressBar
 import subprocess
+import sys
+sys.path.append(os.getcwd())
 
 import chainer
 import chainer.functions as F
@@ -87,7 +89,7 @@ if __name__ == '__main__':
         for k in range(col):
             batch = train_iter.next()
             batch = chainer.dataset.concat_examples(batch)
-            xy, z = batch
+            xy, z, scale = batch
             xy = Variable(xy)
             z_pred = model(xy)
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
