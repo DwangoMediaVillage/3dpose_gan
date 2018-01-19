@@ -30,7 +30,7 @@ class Updater(chainer.training.StandardUpdater):
 
         batch = self.get_iterator('main').next()
         batchsize = len(batch)
-        xy, z = chainer.dataset.concat_examples(batch, self.device)
+        xy, z, scale = chainer.dataset.concat_examples(batch, self.device)
 
         xy = Variable(xy)
         z_pred = gen(xy)

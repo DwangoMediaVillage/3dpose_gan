@@ -5,6 +5,7 @@
 import copy
 
 import chainer
+from chainer import cuda
 from chainer import function
 import chainer.functions as F
 from chainer import reporter as reporter_module
@@ -31,12 +32,16 @@ class Evaluator(extensions.Evaluator):
         for batch in it:
             observation = {}
             with reporter_module.report_scope(observation):
-                xy, z = self.converter(batch, self.device)
+                xy, z, scale = self.converter(batch, self.device)
                 with function.no_backprop_mode(), \
                         chainer.using_config('train', False):
                     z_pred = gen(xy)
                     mse = F.mean_squared_error(z_pred, z)
                     chainer.report({'mse': mse}, gen)
+                    mae = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
+                    mae *= scale
+                    mae = gen.xp.mean(mae)
+                    chainer.report({'mae': mae}, gen)
             summary.add(observation)
 
         return summary.compute_mean()
