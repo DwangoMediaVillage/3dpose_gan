@@ -160,7 +160,7 @@ def main():
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
-        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real', 'dis/acc/fake', 'validation/gen/mse'
+        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real', 'dis/acc/fake', 'validation/gen/mse', 'validation/gen/mae'
     ]), trigger=log_interval)
     trainer.extend(extensions.ProgressBar(update_interval=10))
     chainerui.utils.save_args(args, args.dir)

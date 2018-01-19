@@ -51,6 +51,7 @@ class PoseDataset(chainer.dataset.DatasetMixin):
 
 
         normalized_xyz = []
+        scale = []
         # TODO(kogaki): forではなくarrayのまま処理できるように(CPU使いすぎ)
         for j in range(length):
             a = npy[start_pos + j].copy()
@@ -61,6 +62,7 @@ class PoseDataset(chainer.dataset.DatasetMixin):
             # index=0と8の関節位置の距離が1になるようにスケール変換
             body_length = np.sqrt(np.power(a[0] - a[8], 2).sum())
             a /= body_length
+            scale.append(body_length)
 
             # z軸回りの回転（index=8の関節位置がx=0となるように）
             x, y = a[8, :2]
@@ -106,4 +108,4 @@ class PoseDataset(chainer.dataset.DatasetMixin):
 
         z = normalized_xyz[:, :, 2]
         z = z.reshape(length, -1)[None, :, :].astype(np.float32)
-        return xy, z
+        return xy, z, np.array(scale, dtype=np.float32)
