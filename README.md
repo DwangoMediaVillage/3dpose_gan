@@ -59,7 +59,8 @@
       --gpu 0 \
       --epoch 500 \
       --opt Adam \
-      --bn f \
+      --bn t \
+      --act_func relu \
       --train_mode supervised
     ```
 
