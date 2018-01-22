@@ -67,8 +67,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('model_path', type=str)
-    parser.add_argument('--row', type=int, default=4)
-    parser.add_argument('--col', type=str, default=4)
+    parser.add_argument('--row', type=int, default=6)
+    parser.add_argument('--col', type=int, default=6)
+    parser.add_argument('--action', '-a', type=str, default='')
     args = parser.parse_args()
 
     col, row = args.col, args.row
@@ -76,13 +77,14 @@ if __name__ == '__main__':
     with open(os.path.join(os.path.dirname(model_path), 'options.pickle'), 'rb') as f:
         options = pickle.load(f)
     l_seq = options.l_seq
+    action = args.action if args.action else options.action
 
     imgs = np.zeros((l_seq, 350 * col, 600 * row, 3), dtype=np.uint8)
     model = models.net.ConvAE(
-        l_latent=64, l_seq=l_seq, mode='generator',
+        l_latent=options.l_latent, l_seq=l_seq, mode='generator',
         bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    train = dataset.PoseDataset('data/h3.6m', length=l_seq, train=False)
+    train = dataset.PoseDataset(options.root, action=action, length=l_seq, train=False)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         pbar = ProgressBar(col)
@@ -123,7 +125,7 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join(os.path.dirname(model_path), 'videos')):
         os.mkdir(os.path.join(os.path.dirname(model_path), 'videos'))
     video_path = os.path.join(os.path.dirname(model_path), 'videos',
-                              os.path.basename(model_path).replace('.npz', '.mp4'))
+                              os.path.basename(model_path).replace('.npz', '_action_{}.mp4'.format(action)))
     out = cv2.VideoWriter(video_path, fourcc, 20.0, (imgs.shape[2], imgs.shape[1]))
     for img in imgs:
         for k in range(col + 1):

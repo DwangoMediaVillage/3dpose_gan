@@ -10,30 +10,41 @@ import glob
 
 class PoseDataset(chainer.dataset.DatasetMixin):
 
-    def __init__(self, root, length=32, train=True):
+    def __init__(self, root, action='all', length=32, train=True):
         if train:
-            data_set = ['S1', 'S6', 'S7', 'S8', 'S9', 'S11']
+            data_set = ['S1', 'S5', 'S6', 'S7', 'S8']
         else:
-            data_set = ['S5']
+            data_set = ['S9', 'S11']
+
+        with open('data/actions.txt') as f:
+            actions_all = f.read().split('\n')[:-1]
+        if action == 'all':
+            actions = actions_all
+        elif action in actions_all:
+            actions = [action]
+        else:
+            raise Exception('Invalid action.')
 
         self.data_list = []
         self.npys = {}
-        for dirname in data_set:
-            npy_paths = glob.glob(os.path.join(root, dirname, 'walking_*.npy'))
-            npy_paths.sort()
-            for npy_path in npy_paths:
-                basename = os.path.basename(npy_path)
-                action = os.path.splitext(basename)[0]
-                npy = np.load(npy_path)[::2]  # ダウンサンプリング
-                L = len(npy)
+        for action_name in actions:
+            for dirname in data_set:
+                npy_paths = glob.glob(os.path.join(
+                    root, dirname, '{}_*.npy'.format(action_name)))
+                npy_paths.sort()
+                for npy_path in npy_paths:
+                    basename = os.path.basename(npy_path)
+                    action = os.path.splitext(basename)[0]
+                    npy = np.load(npy_path)[::2]  # ダウンサンプリング
+                    L = len(npy)
 
-                key = os.path.join(dirname, action)
-                self.npys[key] = npy
+                    key = os.path.join(dirname, action)
+                    self.npys[key] = npy
 
-                for start_pos in range(L - length + 1):
-                    info = {'dirname': dirname, 'action': action,
-                            'start_pos': start_pos, 'length': length}
-                    self.data_list.append(info)
+                    for start_pos in range(L - length + 1):
+                        info = {'dirname': dirname, 'action': action,
+                                'start_pos': start_pos, 'length': length}
+                        self.data_list.append(info)
         self.train = train
 
     def __len__(self):
