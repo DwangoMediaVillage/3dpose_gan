@@ -78,6 +78,8 @@ def main():
     parser.add_argument('--snapshot_interval', type=int, default=1)
     parser.add_argument('--nn', type=str, default='conv', choices=['linear', 'conv'],
                         help='使用するモデルの選択')
+    parser.add_argument('--noise_scale', type=float, default=0,
+                        help='xyに加えるガウシアンノイズの大きさ')
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -130,8 +132,10 @@ def main():
         opt_dis.add_hook(WeightClipping(0.01))
 
     # データセットの読み込み
-    train = PoseDataset(args.root, action=args.action, length=args.l_seq, train=True)
-    test = PoseDataset(args.root, action=args.action, length=args.l_seq, train=False)
+    train = PoseDataset(args.root, action=args.action, length=args.l_seq,
+                        train=True, noise_scale=args.noise_scale)
+    test = PoseDataset(args.root, action=args.action, length=args.l_seq,
+                       train=False, noise_scale=args.noise_scale)
     multiprocessing.set_start_method('spawn')
     train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
     test_iter = chainer.iterators.MultiprocessIterator(

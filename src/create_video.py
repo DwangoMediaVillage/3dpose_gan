@@ -89,21 +89,22 @@ if __name__ == '__main__':
             l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    train = dataset.PoseDataset(options.root, action=action, length=l_seq, train=False)
+    train = dataset.PoseDataset(options.root, action=action, length=l_seq,
+                                train=False, noise_scale=options.noise_scale)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         pbar = ProgressBar(col)
         for k in range(col):
             batch = train_iter.next()
             batch = chainer.dataset.concat_examples(batch)
-            xy, z, scale = batch
-            xy = Variable(xy)
-            z_pred = model(xy)
+            xy, z, scale, noise = batch
+            xy_real = Variable(xy + noise)
+            z_pred = model(xy_real)
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
             cos_theta = Variable(np.broadcast_to(np.cos(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
             sin_theta = Variable(np.broadcast_to(np.sin(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
-            x = xy[:, :, :, 0::2]
-            y = xy[:, :, :, 1::2]
+            x = xy_real[:, :, :, 0::2]
+            y = xy_real[:, :, :, 1::2]
 
             xx = x * cos_theta + z * sin_theta
             xx = xx[:, :, :, :, None]
@@ -119,7 +120,7 @@ if __name__ == '__main__':
 
             for j in range(row):
                 for i in range(l_seq):
-                    im0 = create_img(k, j, i, xy)
+                    im0 = create_img(k, j, i, xy_real)
                     im1 = create_img(k, j, i, real)
                     im2 = create_img(k, j, i, fake)
                     imgs[i, k*350:(k+1)*350, j*600:(j+1)*600] = np.concatenate((im0, im1, im2), axis=1)

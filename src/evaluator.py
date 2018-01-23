@@ -32,15 +32,23 @@ class Evaluator(extensions.Evaluator):
         for batch in it:
             observation = {}
             with reporter_module.report_scope(observation):
-                xy, z, scale = self.converter(batch, self.device)
+                xy, z, scale, noise = self.converter(batch, self.device)
                 with function.no_backprop_mode(), \
                         chainer.using_config('train', False):
-                    z_pred = gen(xy)
+                    xy_real = xy + noise
+                    z_pred = gen(xy_real)
                     mse = F.mean_squared_error(z_pred, z)
                     chainer.report({'mse': mse}, gen)
-                    m1 = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
-                    m2 = gen.xp.abs(z + z_pred.data).mean(axis=3)[:, 0]
+
+                    xx = gen.xp.power(noise[:, :, :, 0::2], 2)
+                    yy = gen.xp.power(noise[:, :, :, 1::2], 2)
+                    zz1 = gen.xp.power(z - z_pred.data, 2)
+                    zz2 = gen.xp.power(z + z_pred.data, 2)
+
+                    m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
+                    m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
                     mae = gen.xp.where(m1 < m2, m1, m2)
+
                     m1 *= scale
                     mae *= scale
                     m1 = gen.xp.mean(m1)

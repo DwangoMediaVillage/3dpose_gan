@@ -60,17 +60,25 @@ if __name__ == '__main__':
     errors = []
     for act_name in actions:
         test = src.dataset.PoseDataset(
-            opts.root, action=act_name, length=opts.l_seq, train=False)
+            opts.root, action=act_name, length=opts.l_seq,
+            train=False, noise_scale=opts.noise_scale)
         test_iter = iterators.MultiprocessIterator(
             test, args.batchsize, repeat=False, shuffle=False)
         maes = []
         for batch in test_iter:
-            xy, z, scale = dataset.concat_examples(batch, device=args.gpu)
+            xy, z, scale, noise = dataset.concat_examples(batch, device=args.gpu)
             with chainer.no_backprop_mode(), \
                     chainer.using_config('train', False):
-                z_pred = gen(xy)
-            m1 = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
-            m2 = gen.xp.abs(z + z_pred.data).mean(axis=3)[:, 0]
+                xy_real = xy + noise
+                z_pred = gen(xy_real)
+
+            xx = gen.xp.power(noise[:, :, :, 0::2], 2)
+            yy = gen.xp.power(noise[:, :, :, 1::2], 2)
+            zz1 = gen.xp.power(z - z_pred.data, 2)
+            zz2 = gen.xp.power(z + z_pred.data, 2)
+
+            m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
+            m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
             mae = gen.xp.where(m1 < m2, m1, m2)
             mae *= scale
             mae = gen.xp.mean(mae)

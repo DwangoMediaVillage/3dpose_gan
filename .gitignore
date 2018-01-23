@@ -101,5 +101,5 @@ ENV/
 .mypy_cache/
 
 data/h3.6m
-results
+results*
 .DS_Store
