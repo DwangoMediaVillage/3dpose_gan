@@ -19,7 +19,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from models.net import ConvAE
+from models.net import ConvAE, Linear
 from dataset import PoseDataset
 
 from updater import Updater
@@ -72,7 +72,14 @@ def main():
                         choices=['dcgan', 'wgan', 'supervised'])
     parser.add_argument('--act_func', type=str, default='leaky_relu')
     parser.add_argument('--vertical_ksize', type=int, default=1)
-    parser.add_argument('--dcgan_accuracy_cap', type=float, default=1.0, help="Disのaccuracyがこれを超えると更新しない手加減")
+    parser.add_argument('--dcgan_accuracy_cap', type=float, default=1.0,
+                        help="Disのaccuracyがこれを超えると更新しない手加減")
+    parser.add_argument('--action', '-a', type=str, default='all')
+    parser.add_argument('--snapshot_interval', type=int, default=1)
+    parser.add_argument('--nn', type=str, default='conv', choices=['linear', 'conv'],
+                        help='使用するモデルの選択')
+    parser.add_argument('--noise_scale', type=float, default=0,
+                        help='xyに加えるガウシアンノイズの大きさ')
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -85,10 +92,18 @@ def main():
     # モデルのセットアップ
     if args.gpu >= 0:
         chainer.cuda.get_device(args.gpu).use()
-    gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
-                 bn=args.bn, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
-    dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
-                 bn=False, activate_func=getattr(F, args.act_func), vertical_ksize=args.vertical_ksize)
+    if args.nn == 'conv':
+        gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
+                     bn=args.bn, activate_func=getattr(F, args.act_func),
+                     vertical_ksize=args.vertical_ksize)
+        dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
+                     bn=False, activate_func=getattr(F, args.act_func),
+                     vertical_ksize=args.vertical_ksize)
+    elif args.nn == 'linear':
+        gen = Linear(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
+                     bn=args.bn, activate_func=getattr(F, args.act_func))
+        dis = Linear(l_latent=1, l_seq=args.l_seq, mode='discriminator',
+                     bn=args.bn, activate_func=getattr(F, args.act_func))
     if args.gpu >= 0:
         gen.to_gpu()
         dis.to_gpu()
@@ -117,8 +132,10 @@ def main():
         opt_dis.add_hook(WeightClipping(0.01))
 
     # データセットの読み込み
-    train = PoseDataset(args.root, length=args.l_seq, train=True)
-    test = PoseDataset(args.root, length=args.l_seq, train=False)
+    train = PoseDataset(args.root, action=args.action, length=args.l_seq,
+                        train=True, noise_scale=args.noise_scale)
+    test = PoseDataset(args.root, action=args.action, length=args.l_seq,
+                       train=False, noise_scale=args.noise_scale)
     multiprocessing.set_start_method('spawn')
     train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
     test_iter = chainer.iterators.MultiprocessIterator(
@@ -138,7 +155,7 @@ def main():
     trainer.extend(chainerui.extensions.CommandsExtension())
 
     log_interval = (1, 'epoch')
-    snapshot_interval = (10, 'epoch')
+    snapshot_interval = (args.snapshot_interval, 'epoch')
 
     if args.opt == 'NesterovAG':
         trainer.extend(
@@ -160,7 +177,9 @@ def main():
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
-        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real', 'dis/acc/fake', 'validation/gen/mse', 'validation/gen/mae'
+        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real',
+        'dis/acc/fake', 'validation/gen/mse',
+        'validation/gen/mae1', 'validation/gen/mae2'
     ]), trigger=log_interval)
     trainer.extend(extensions.ProgressBar(update_interval=10))
     chainerui.utils.save_args(args, args.dir)
@@ -172,10 +191,14 @@ def main():
         epochs = [int(re.search('gen_epoch_(.*).npz', path).group(1)) for path in
                   glob.glob(os.path.join(args.resume, 'gen_epoch_*.npz'))]
         max_epoch = max(epochs)
-        chainer.serializers.load_npz(os.path.join(args.resume, 'gen_epoch_{}.npz'.format(max_epoch)), gen)
-        chainer.serializers.load_npz(os.path.join(args.resume, 'dis_epoch_{}.npz'.format(max_epoch)), dis)
-        chainer.serializers.load_npz(os.path.join(args.resume, 'opt_gen_epoch_{}.npz'.format(max_epoch)), opt_gen)
-        chainer.serializers.load_npz(os.path.join(args.resume, 'opt_dis_epoch_{}.npz'.format(max_epoch)), opt_dis)
+        chainer.serializers.load_npz(
+            os.path.join(args.resume, 'gen_epoch_{}.npz'.format(max_epoch)), gen)
+        chainer.serializers.load_npz(
+            os.path.join(args.resume, 'dis_epoch_{}.npz'.format(max_epoch)), dis)
+        chainer.serializers.load_npz(
+            os.path.join(args.resume, 'opt_gen_epoch_{}.npz'.format(max_epoch)), opt_gen)
+        chainer.serializers.load_npz(
+            os.path.join(args.resume, 'opt_dis_epoch_{}.npz'.format(max_epoch)), opt_dis)
 
     # Run the training
     trainer.run()

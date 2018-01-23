@@ -9,6 +9,8 @@ import os
 import pickle
 from progressbar import ProgressBar
 import subprocess
+import sys
+sys.path.append(os.getcwd())
 
 import chainer
 import chainer.functions as F
@@ -65,8 +67,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('model_path', type=str)
-    parser.add_argument('--row', type=int, default=4)
-    parser.add_argument('--col', type=str, default=4)
+    parser.add_argument('--row', type=int, default=6)
+    parser.add_argument('--col', type=int, default=6)
+    parser.add_argument('--action', '-a', type=str, default='')
     args = parser.parse_args()
 
     col, row = args.col, args.row
@@ -74,27 +77,34 @@ if __name__ == '__main__':
     with open(os.path.join(os.path.dirname(model_path), 'options.pickle'), 'rb') as f:
         options = pickle.load(f)
     l_seq = options.l_seq
+    action = args.action if args.action else options.action
 
     imgs = np.zeros((l_seq, 350 * col, 600 * row, 3), dtype=np.uint8)
-    model = models.net.ConvAE(
-        l_latent=64, l_seq=l_seq, mode='generator',
-        bn=options.bn, activate_func=getattr(F, options.act_func))
+    if options.nn == 'conv':
+        model = models.net.ConvAE(
+            l_latent=options.l_latent, l_seq=l_seq, mode='generator',
+            bn=options.bn, activate_func=getattr(F, options.act_func))
+    elif options.nn == 'linear':
+        model = models.net.Linear(
+            l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
+            bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    train = dataset.PoseDataset('data/h3.6m', length=l_seq, train=False)
+    train = dataset.PoseDataset(options.root, action=action, length=l_seq,
+                                train=False, noise_scale=options.noise_scale)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         pbar = ProgressBar(col)
         for k in range(col):
             batch = train_iter.next()
             batch = chainer.dataset.concat_examples(batch)
-            xy, z = batch
-            xy = Variable(xy)
-            z_pred = model(xy)
+            xy, z, scale, noise = batch
+            xy_real = Variable(xy + noise)
+            z_pred = model(xy_real)
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
             cos_theta = Variable(np.broadcast_to(np.cos(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
             sin_theta = Variable(np.broadcast_to(np.sin(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
-            x = xy[:, :, :, 0::2]
-            y = xy[:, :, :, 1::2]
+            x = xy_real[:, :, :, 0::2]
+            y = xy_real[:, :, :, 1::2]
 
             xx = x * cos_theta + z * sin_theta
             xx = xx[:, :, :, :, None]
@@ -110,7 +120,7 @@ if __name__ == '__main__':
 
             for j in range(row):
                 for i in range(l_seq):
-                    im0 = create_img(k, j, i, xy)
+                    im0 = create_img(k, j, i, xy_real)
                     im1 = create_img(k, j, i, real)
                     im2 = create_img(k, j, i, fake)
                     imgs[i, k*350:(k+1)*350, j*600:(j+1)*600] = np.concatenate((im0, im1, im2), axis=1)
@@ -121,7 +131,7 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.join(os.path.dirname(model_path), 'videos')):
         os.mkdir(os.path.join(os.path.dirname(model_path), 'videos'))
     video_path = os.path.join(os.path.dirname(model_path), 'videos',
-                              os.path.basename(model_path).replace('.npz', '.mp4'))
+                              os.path.basename(model_path).replace('.npz', '_action_{}.mp4'.format(action)))
     out = cv2.VideoWriter(video_path, fourcc, 20.0, (imgs.shape[2], imgs.shape[1]))
     for img in imgs:
         for k in range(col + 1):

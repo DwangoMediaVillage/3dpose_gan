@@ -30,10 +30,10 @@ class Updater(chainer.training.StandardUpdater):
 
         batch = self.get_iterator('main').next()
         batchsize = len(batch)
-        xy, z, scale = chainer.dataset.concat_examples(batch, self.device)
+        xy, z, scale, noise = chainer.dataset.concat_examples(batch, self.device)
 
-        xy = Variable(xy)
-        z_pred = gen(xy)
+        xy_real = Variable(xy + noise)
+        z_pred = gen(xy_real)
 
         # Random rotation.
         theta = np.random.uniform(0, 2 * np.pi, len(xy)).astype(np.float32)
@@ -43,8 +43,8 @@ class Updater(chainer.training.StandardUpdater):
         sin_theta = Variable(self.gen.xp.array(sin_theta.transpose(3, 2, 1, 0)))
 
         # 2D Projection.
-        x = xy[:, :, :, 0::2]
-        y = xy[:, :, :, 1::2]
+        x = xy_real[:, :, :, 0::2]
+        y = xy_real[:, :, :, 1::2]
         xx = x * cos_theta + z_pred * sin_theta
         xx = xx[:, :, :, :, None]
         yy = y[:, :, :, :, None]
@@ -52,10 +52,10 @@ class Updater(chainer.training.StandardUpdater):
         xy_fake = F.reshape(xy_fake, (*y.shape[:3], -1))
 
         if self.batch_statistics:
-            xy = concat_stat(xy)
+            xy_real = concat_stat(xy_real)
             xy_fake = concat_stat(xy_fake)
 
-        y_real = dis(xy)
+        y_real = dis(xy_real)
         y_fake = dis(xy_fake)
         mse = F.mean_squared_error(z_pred, z)
 
