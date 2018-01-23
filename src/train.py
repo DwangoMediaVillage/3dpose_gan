@@ -19,7 +19,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from models.net import ConvAE
+from models.net import ConvAE, Linear
 from dataset import PoseDataset
 
 from updater import Updater
@@ -76,6 +76,8 @@ def main():
                         help="Disのaccuracyがこれを超えると更新しない手加減")
     parser.add_argument('--action', '-a', type=str, default='all')
     parser.add_argument('--snapshot_interval', type=int, default=1)
+    parser.add_argument('--nn', type=str, default='conv', choices=['linear', 'conv'],
+                        help='使用するモデルの選択')
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -88,12 +90,18 @@ def main():
     # モデルのセットアップ
     if args.gpu >= 0:
         chainer.cuda.get_device(args.gpu).use()
-    gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
-                 bn=args.bn, activate_func=getattr(F, args.act_func),
-                 vertical_ksize=args.vertical_ksize)
-    dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
-                 bn=False, activate_func=getattr(F, args.act_func),
-                 vertical_ksize=args.vertical_ksize)
+    if args.nn == 'conv':
+        gen = ConvAE(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
+                     bn=args.bn, activate_func=getattr(F, args.act_func),
+                     vertical_ksize=args.vertical_ksize)
+        dis = ConvAE(l_latent=1, l_seq=args.l_seq, mode='discriminator',
+                     bn=False, activate_func=getattr(F, args.act_func),
+                     vertical_ksize=args.vertical_ksize)
+    elif args.nn == 'linear':
+        gen = Linear(l_latent=args.l_latent, l_seq=args.l_seq, mode='generator',
+                     bn=args.bn, activate_func=getattr(F, args.act_func))
+        dis = Linear(l_latent=1, l_seq=args.l_seq, mode='discriminator',
+                     bn=args.bn, activate_func=getattr(F, args.act_func))
     if args.gpu >= 0:
         gen.to_gpu()
         dis.to_gpu()
@@ -166,7 +174,8 @@ def main():
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
         'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real',
-        'dis/acc/fake', 'validation/gen/mse', 'validation/gen/mae'
+        'dis/acc/fake', 'validation/gen/mse',
+        'validation/gen/mae1', 'validation/gen/mae2'
     ]), trigger=log_interval)
     trainer.extend(extensions.ProgressBar(update_interval=10))
     chainerui.utils.save_args(args, args.dir)

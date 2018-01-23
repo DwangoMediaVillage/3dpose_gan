@@ -38,10 +38,15 @@ class Evaluator(extensions.Evaluator):
                     z_pred = gen(xy)
                     mse = F.mean_squared_error(z_pred, z)
                     chainer.report({'mse': mse}, gen)
-                    mae = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
+                    m1 = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
+                    m2 = gen.xp.abs(z + z_pred.data).mean(axis=3)[:, 0]
+                    mae = gen.xp.where(m1 < m2, m1, m2)
+                    m1 *= scale
                     mae *= scale
+                    m1 = gen.xp.mean(m1)
                     mae = gen.xp.mean(mae)
-                    chainer.report({'mae': mae}, gen)
+                    chainer.report({'mae1': m1}, gen)
+                    chainer.report({'mae2': mae}, gen)
             summary.add(observation)
 
         return summary.compute_mean()

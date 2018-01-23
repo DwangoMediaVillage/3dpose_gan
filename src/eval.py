@@ -35,10 +35,15 @@ if __name__ == '__main__':
         opts = pickle.load(f)
 
     # モデルの定義
-    gen = models.net.ConvAE(l_latent=opts.l_latent, l_seq=opts.l_seq,
-                            bn=opts.bn,
-                            activate_func=getattr(F, opts.act_func),
-                            vertical_ksize=opts.vertical_ksize)
+    if opts.nn == 'conv':
+        gen = models.net.ConvAE(l_latent=opts.l_latent, l_seq=opts.l_seq,
+                                bn=opts.bn,
+                                activate_func=getattr(F, opts.act_func),
+                                vertical_ksize=opts.vertical_ksize)
+    elif opts.nn == 'linear':
+        gen = models.net.Linear(
+            l_latent=opts.l_latent, l_seq=opts.l_seq,
+            bn=opts.bn, activate_func=getattr(F, opts.act_func))
     serializers.load_npz(args.model_path, gen)
     if args.gpu >= 0:
         cuda.get_device(args.gpu).use()
@@ -64,7 +69,9 @@ if __name__ == '__main__':
             with chainer.no_backprop_mode(), \
                     chainer.using_config('train', False):
                 z_pred = gen(xy)
-            mae = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
+            m1 = gen.xp.abs(z - z_pred.data).mean(axis=3)[:, 0]
+            m2 = gen.xp.abs(z + z_pred.data).mean(axis=3)[:, 0]
+            mae = gen.xp.where(m1 < m2, m1, m2)
             mae *= scale
             mae = gen.xp.mean(mae)
             maes.append(mae * len(batch))

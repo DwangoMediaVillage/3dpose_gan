@@ -80,9 +80,14 @@ if __name__ == '__main__':
     action = args.action if args.action else options.action
 
     imgs = np.zeros((l_seq, 350 * col, 600 * row, 3), dtype=np.uint8)
-    model = models.net.ConvAE(
-        l_latent=options.l_latent, l_seq=l_seq, mode='generator',
-        bn=options.bn, activate_func=getattr(F, options.act_func))
+    if options.nn == 'conv':
+        model = models.net.ConvAE(
+            l_latent=options.l_latent, l_seq=l_seq, mode='generator',
+            bn=options.bn, activate_func=getattr(F, options.act_func))
+    elif options.nn == 'linear':
+        model = models.net.Linear(
+            l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
+            bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
     train = dataset.PoseDataset(options.root, action=action, length=l_seq, train=False)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
