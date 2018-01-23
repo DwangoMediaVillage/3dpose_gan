@@ -21,15 +21,33 @@
   - DCGAN
     ```
     python src/train.py \
-      --l_seq 64 \
+      --l_seq 1 \
       --gpu 0 \
       --epoch 500 \
       --opt Adam \
       --bn f \
       --train_mode dcgan \
-      --dcgan_accuracy_cap 0.9
+      --dcgan_accuracy_cap 0.9 \
+      --action all \
+      --nn linear \
+      --noise_scale 0
     ```
 
+  - Supervised Learning
+    ```
+    python src/train.py \             
+      --l_seq 1 \
+      --gpu 2 \
+      --epoch 500 \
+      --opt Adam \
+      --bn t \
+      --act_func relu \
+      --train_mode supervised \
+      --nn linear \
+      --noise_scale 0
+    ```
+
+#### 以下検証中...
   - DCGAN with Batch Normalization in Discriminator
     ```
     python src/train.py \
@@ -50,18 +68,6 @@
       --opt RMSprop \
       --bn f \
       --train_mode wgan
-    ```
-
-  - Supervised Learning
-    ```
-    python src/train.py \
-      --l_seq 64 \
-      --gpu 0 \
-      --epoch 500 \
-      --opt Adam \
-      --bn t \
-      --act_func relu \
-      --train_mode supervised
     ```
 
 ## 学習結果の描画（動画の作成）
