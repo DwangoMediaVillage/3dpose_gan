@@ -9,12 +9,14 @@
   - OpenCV 3.1.0 with ffmpeg (動画作成時)
 
 ## セットアップ
-  - シンボリックリンクの作成
+  - データセットのダウンロード
     ```
     git clone https://github.com/DwangoMediaVillage/3dpose_gan.git
     cd 3dpose_gan
-    mkdir data
-    ln -s /mnt/dataset/h36m/h3.6m/dataset data/h3.6m
+    cd data
+    wget https://www.dropbox.com/s/dgtpcudkm1jndh3/h3.6m.tar.gz
+    tar zxvf h3.6m.tar.gz
+    rm h3.6m.tar.gz
     ```
 
 ## 学習
