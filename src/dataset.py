@@ -126,8 +126,11 @@ class PoseDataset(chainer.dataset.DatasetMixin):
 
         if not self.train:
             np.random.seed(i)
-        noise = np.random.normal(
-            scale=self.noise_scale, size=xy.shape).astype(np.float32)
+        if self.noise_scale > 0:
+            noise = np.random.normal(
+                scale=self.noise_scale, size=xy.shape).astype(np.float32)
+        else:
+            noise = np.zeros(xy.shape, dtype=np.float32)
         noise = noise / scale[None, :, None]
 
         return xy, z, scale, noise
