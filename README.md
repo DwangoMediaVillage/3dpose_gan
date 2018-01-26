@@ -77,3 +77,9 @@
 ```
 python src/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz
 ```
+
+## 詳細評価
+コマンド例
+```
+python src/eval.py results/2017-12-08_06-33-26/gen_epoch_1.npz
+```
