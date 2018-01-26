@@ -20,6 +20,11 @@ sys.path.append(os.getcwd())
 import src.dataset
 import models.net
 
+def calc_sin(x0, y0, x1, y1):
+    xp = cuda.get_array_module(x0)
+    l0 = xp.sqrt(xp.power(x0, 2) + xp.power(y0, 2))
+    l1 = xp.sqrt(xp.power(x1, 2) + xp.power(y1, 2))
+    return (x0 * y1 - x1 * y0) / (l0 * l1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -72,14 +77,30 @@ if __name__ == '__main__':
                 xy_real = xy + noise
                 z_pred = gen(xy_real)
 
+            x_real = xy_real[:, :, :, 0::2]
+            # 首から鼻へのzx平面上のベクトル(a0, b0)
+            a0 = z_pred.data[:, :, :, 9] - z_pred.data[:, :, :, 8]
+            b0 = x_real[:, : ,:, 9] - x_real[:, : ,:, 8]
+            # 右肩から左肩へのzx平面上のベクトル(a1, b1)
+            a1 = z_pred.data[:, :, :, 14] - z_pred.data[:, :, :, 11]
+            b1 = x_real[:, : ,:, 14] - x_real[:, : ,:, 11]
+            # 上の2つのベクトルが成す角のsin値．正なら人間として正しい．
+            deg_sin = calc_sin(a0, b0, a1, b1)
+
+            # noiseがある場合はnoiseも評価に入れる
             xx = gen.xp.power(noise[:, :, :, 0::2], 2)
             yy = gen.xp.power(noise[:, :, :, 1::2], 2)
-            zz1 = gen.xp.power(z - z_pred.data, 2)
-            zz2 = gen.xp.power(z + z_pred.data, 2)
 
+            # zを反転しない場合
+            zz1 = gen.xp.power(z - z_pred.data, 2)
             m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
+
+            # zに-1を掛けて反転した場合のLoss
+            zz2 = gen.xp.power(z + z_pred.data, 2)
             m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
-            mae = gen.xp.where(m1 < m2, m1, m2)
+
+            # sin値が負ならzに-1を掛けて反転した場合のLossを使用
+            mae = gen.xp.where(deg_sin[:, 0] >= 0, m1, m2)
             mae *= scale
             mae = gen.xp.mean(mae)
             maes.append(mae * len(batch))
