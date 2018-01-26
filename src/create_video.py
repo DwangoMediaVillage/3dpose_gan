@@ -70,6 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('--row', type=int, default=6)
     parser.add_argument('--col', type=int, default=6)
     parser.add_argument('--action', '-a', type=str, default='')
+    parser.add_argument('--image', action='store_true')
     args = parser.parse_args()
 
     col, row = args.col, args.row
@@ -126,18 +127,24 @@ if __name__ == '__main__':
                     imgs[i, k*350:(k+1)*350, j*600:(j+1)*600] = np.concatenate((im0, im1, im2), axis=1)
             pbar.update(k + 1)
 
-    print('Saving video ...')
-    fourcc = cv2.VideoWriter_fourcc(*'H264')
     if not os.path.exists(os.path.join(os.path.dirname(model_path), 'videos')):
         os.mkdir(os.path.join(os.path.dirname(model_path), 'videos'))
     video_path = os.path.join(os.path.dirname(model_path), 'videos',
                               os.path.basename(model_path).replace('.npz', '_action_{}.mp4'.format(action)))
-    out = cv2.VideoWriter(video_path, fourcc, 20.0, (imgs.shape[2], imgs.shape[1]))
     for img in imgs:
         for k in range(col + 1):
             img = cv2.line(img, (0, k * 350), (row * 600, k * 350), (0, 0, 255), 4)
         for j in range(row + 1):
             img = cv2.line(img, (j * 600, 0), (j * 600, col * 350), (0, 0, 255), 4)
-        out.write(img)
-    out.release()
-    print('Saved video as \'{}\'.'.format(video_path))
+    if not args.image:
+        print('Saving video ...')
+        fourcc = cv2.VideoWriter_fourcc(*'H264')
+        out = cv2.VideoWriter(video_path, fourcc, 20.0, (imgs.shape[2], imgs.shape[1]))
+        for img in imgs:
+            out.write(img)
+        out.release()
+        print('Saved video as \'{}\'.'.format(video_path))
+    else:
+        image_path = video_path.replace('.mp4', '.png')
+        cv2.imwrite(image_path, imgs[0])
+        print('Saved image as \'{}\'.'.format(image_path))

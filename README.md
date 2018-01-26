@@ -77,6 +77,10 @@
 ```
 python src/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz
 ```
+最初の1フレームを静止画で保存
+```
+python src/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz --image
+```
 
 ## 詳細評価
 コマンド例
