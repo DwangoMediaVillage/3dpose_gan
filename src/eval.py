@@ -13,18 +13,13 @@ import chainer.functions as F
 import argparse
 import os
 import pickle
-from progressbar import ProgressBar
 import sys
 
 sys.path.append(os.getcwd())
 import src.dataset
 import models.net
+import updater
 
-def calc_sin(x0, y0, x1, y1):
-    xp = cuda.get_array_module(x0)
-    l0 = xp.sqrt(xp.power(x0, 2) + xp.power(y0, 2))
-    l1 = xp.sqrt(xp.power(x1, 2) + xp.power(y1, 2))
-    return (x0 * y1 - x1 * y0) / (l0 * l1)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -73,19 +68,11 @@ if __name__ == '__main__':
         for batch in test_iter:
             xy, z, scale, noise = dataset.concat_examples(batch, device=args.gpu)
             with chainer.no_backprop_mode(), \
-                    chainer.using_config('train', False):
+                 chainer.using_config('train', False):
                 xy_real = xy + noise
                 z_pred = gen(xy_real)
 
-            x_real = xy_real[:, :, :, 0::2]
-            # 首から鼻へのzx平面上のベクトル(a0, b0)
-            a0 = z_pred.data[:, :, :, 9] - z_pred.data[:, :, :, 8]
-            b0 = x_real[:, : ,:, 9] - x_real[:, : ,:, 8]
-            # 右肩から左肩へのzx平面上のベクトル(a1, b1)
-            a1 = z_pred.data[:, :, :, 14] - z_pred.data[:, :, :, 11]
-            b1 = x_real[:, : ,:, 14] - x_real[:, : ,:, 11]
-            # 上の2つのベクトルが成す角のsin値．正なら人間として正しい．
-            deg_sin = calc_sin(a0, b0, a1, b1)
+            deg_sin = updater.Updater.calculate_rotation(chainer.Variable(xy_real), z_pred).data[:, :, :, 0]
 
             # noiseがある場合はnoiseも評価に入れる
             xx = gen.xp.power(noise[:, :, :, 0::2], 2)

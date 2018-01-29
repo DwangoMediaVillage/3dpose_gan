@@ -13,7 +13,9 @@ import numpy as np
 
 
 class Updater(chainer.training.StandardUpdater):
-    def __init__(self, dcgan_accuracy_cap, *args, **kwargs):
+    def __init__(self, dcgan_accuracy_cap, *args, use_heuristic_loss, heuristic_loss_weight: float, **kwargs):
+        self.heuristic_loss_weight = heuristic_loss_weight
+        self.use_heuristic_loss = use_heuristic_loss
         self.dcgan_accuracy_cap = dcgan_accuracy_cap
         self.mode = kwargs.pop('mode')
         self.batch_statistics = kwargs.pop('batch_statistics')
@@ -21,6 +23,28 @@ class Updater(chainer.training.StandardUpdater):
             raise ValueError
         self.gen, self.dis = kwargs.pop('models')
         super(Updater, self).__init__(*args, **kwargs)
+
+    @staticmethod
+    def calculate_rotation(xy_real: chainer.Variable, z_pred: chainer.Variable) -> chainer.Variable:
+        xy_split = chainer.functions.split_axis(xy_real, xy_real.data.shape[3], axis=3)
+        z_split = chainer.functions.split_axis(z_pred, z_pred.data.shape[3], axis=3)
+
+        # 首から鼻へのzx平面上のベクトル(a0, b0)
+        a0 = z_split[9] - z_split[8]
+        b0 = xy_split[9 * 2] - xy_split[8 * 2]
+        n0 = chainer.functions.sqrt(a0 * a0 + b0 * b0)
+        # 右肩から左肩へのzx平面上のベクトル(a1, b1)
+        a1 = z_split[14] - z_split[11]
+        b1 = xy_split[14 * 2] - xy_split[11 * 2]
+        n1 = chainer.functions.sqrt(a1 * a1 + b1 * b1)
+        # 肩とのなす角
+        return (a0 * b1 - a1 * b0) / (n0 * n1)
+
+    @staticmethod
+    def calculate_heuristic_loss(xy_real: chainer.Variable, z_pred: chainer.Variable) -> chainer.Variable:
+        return chainer.functions.average(
+            chainer.functions.relu(- Updater.calculate_rotation(xy_real, z_pred))
+        )
 
     def update_core(self):
         gen_optimizer = self.get_optimizer('gen')
@@ -71,6 +95,10 @@ class Updater(chainer.training.StandardUpdater):
             acc_dis = (acc_dis_fake + acc_dis_real) / 2
 
             loss_gen = F.sum(F.softplus(-y_fake)) / batchsize
+            if self.use_heuristic_loss:
+                loss_heuristic = self.calculate_heuristic_loss(xy_real=xy_real, z_pred=z_pred)
+                loss_gen += loss_heuristic * self.heuristic_loss_weight
+                chainer.report({'loss_heuristic': loss_heuristic}, gen)
             gen.cleargrads()
             if acc_dis.data >= (1 - self.dcgan_accuracy_cap):
                 loss_gen.backward()
@@ -94,6 +122,10 @@ class Updater(chainer.training.StandardUpdater):
             wasserstein_distance = y_real - y_fake
             loss_dis = -wasserstein_distance
             loss_gen = -y_fake
+            if self.use_heuristic_loss:
+                loss_heuristic = self.calculate_heuristic_loss(xy_real=xy_real, z_pred=z_pred)
+                loss_gen += loss_heuristic * self.heuristic_loss_weight
+                chainer.report({'loss_heuristic': loss_heuristic}, gen)
 
             dis.cleargrads()
             loss_dis.backward()

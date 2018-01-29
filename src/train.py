@@ -80,6 +80,8 @@ def main():
                         help='使用するモデルの選択')
     parser.add_argument('--noise_scale', type=float, default=0,
                         help='xyに加えるガウシアンノイズの大きさ')
+    parser.add_argument('--use_heuristic_loss', action="store_true")
+    parser.add_argument('--heuristic_loss_weight', type=float, default=1.0)
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -149,7 +151,9 @@ def main():
         iterator={'main': train_iter, 'test': test_iter},
         optimizer={'gen': opt_gen, 'dis': opt_dis},
         device=args.gpu,
-        dcgan_accuracy_cap=args.dcgan_accuracy_cap
+        dcgan_accuracy_cap=args.dcgan_accuracy_cap,
+        use_heuristic_loss=args.use_heuristic_loss,
+        heuristic_loss_weight=args.heuristic_loss_weight,
     )
     trainer = training.Trainer(updater, (args.epoch, 'epoch'), out=args.dir)
     trainer.extend(chainerui.extensions.CommandsExtension())
@@ -177,7 +181,7 @@ def main():
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
-        'gen/loss', 'dis/loss', 'dis/acc', 'dis/acc/real',
+        'gen/loss', 'gen/loss_heuristic','dis/loss', 'dis/acc', 'dis/acc/real',
         'dis/acc/fake', 'validation/gen/mse',
         'validation/gen/mae1', 'validation/gen/mae2'
     ]), trigger=log_interval)

@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import os
 import pickle
-from progressbar import ProgressBar
+import tqdm
 import subprocess
 import sys
 sys.path.append(os.getcwd())
@@ -94,13 +94,16 @@ if __name__ == '__main__':
                                 train=False, noise_scale=options.noise_scale)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
-        pbar = ProgressBar(col)
-        for k in range(col):
+        for k in tqdm.tqdm(range(col)):
             batch = train_iter.next()
             batch = chainer.dataset.concat_examples(batch)
             xy, z, scale, noise = batch
             xy_real = Variable(xy + noise)
             z_pred = model(xy_real)
+
+            import updater
+            print(updater.Updater.calculate_heuristic_loss(xy_real, z_pred))
+
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
             cos_theta = Variable(np.broadcast_to(np.cos(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
             sin_theta = Variable(np.broadcast_to(np.sin(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
@@ -125,7 +128,6 @@ if __name__ == '__main__':
                     im1 = create_img(k, j, i, real)
                     im2 = create_img(k, j, i, fake)
                     imgs[i, k*350:(k+1)*350, j*600:(j+1)*600] = np.concatenate((im0, im1, im2), axis=1)
-            pbar.update(k + 1)
 
     if not os.path.exists(os.path.join(os.path.dirname(model_path), 'videos')):
         os.mkdir(os.path.join(os.path.dirname(model_path), 'videos'))
