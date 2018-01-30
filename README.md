@@ -5,7 +5,7 @@
   - Cupy 2.2.0
   - Chainer 3.2.0
   - ChainerUI 0.1.0
-  - ProgressBar2 2.7.3 (動画作成時)
+  - tqdm 4.19.5 (動画作成時)
   - OpenCV 3.1.0 with ffmpeg (動画作成時)
 
 ## セットアップ
@@ -17,12 +17,13 @@
     wget https://www.dropbox.com/s/dgtpcudkm1jndh3/h3.6m.tar.gz
     tar zxvf h3.6m.tar.gz
     rm h3.6m.tar.gz
+    cd ..
     ```
 
 ## 学習
   - DCGAN
     ```
-    python src/train.py \
+    python bin/train.py \
       --l_seq 1 \
       --gpu 0 \
       --epoch 500 \
@@ -37,7 +38,7 @@
 
   - Supervised Learning
     ```
-    python src/train.py \             
+    python bin/train.py \             
       --l_seq 1 \
       --gpu 2 \
       --epoch 500 \
@@ -52,7 +53,7 @@
 #### 以下検証中...
   - DCGAN with Batch Normalization in Discriminator
     ```
-    python src/train.py \
+    python bin/train.py \
       --l_seq 64 \
       --gpu 0 \
       --epoch 500 \
@@ -63,7 +64,7 @@
 
   - WGAN
     ```
-    python src/train.py \
+    python bin/train.py \
       --l_seq 64 \
       --gpu 0 \
       --epoch 500 \
@@ -75,15 +76,15 @@
 ## 学習結果の描画（動画の作成）
 コマンド例
 ```
-python src/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz
+python bin/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz
 ```
 最初の1フレームを静止画で保存
 ```
-python src/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz --image
+python bin/create_video.py results/2017-12-08_06-33-26/gen_epoch_1.npz --image
 ```
 
 ## 詳細評価
 コマンド例
 ```
-python src/eval.py results/2017-12-08_06-33-26/gen_epoch_1.npz
+python bin/eval.py results/2017-12-08_06-33-26/gen_epoch_1.npz
 ```

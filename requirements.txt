@@ -1,2 +1,3 @@
 chainer > 3.0
 chainerui
+tqdm
