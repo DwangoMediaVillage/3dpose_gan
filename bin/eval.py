@@ -15,11 +15,8 @@ import os
 import pickle
 import sys
 
-sys.path.append(os.getcwd())
-import src.dataset
-import models.net
-import updater
-
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import projection_gan
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -36,12 +33,12 @@ if __name__ == '__main__':
 
     # モデルの定義
     if opts.nn == 'conv':
-        gen = models.net.ConvAE(l_latent=opts.l_latent, l_seq=opts.l_seq,
-                                bn=opts.bn,
-                                activate_func=getattr(F, opts.act_func),
-                                vertical_ksize=opts.vertical_ksize)
+        gen = projection_gan.pose.posenet.ConvAE(l_latent=opts.l_latent, l_seq=opts.l_seq,
+                                                 bn=opts.bn,
+                                                 activate_func=getattr(F, opts.act_func),
+                                                 vertical_ksize=opts.vertical_ksize)
     elif opts.nn == 'linear':
-        gen = models.net.Linear(
+        gen = projection_gan.pose.posenet.Linear(
             l_latent=opts.l_latent, l_seq=opts.l_seq,
             bn=opts.bn, activate_func=getattr(F, opts.act_func))
     serializers.load_npz(args.model_path, gen)
@@ -59,7 +56,7 @@ if __name__ == '__main__':
     # 各行動クラスに対して平均エラー(mm)を算出
     errors = []
     for act_name in actions:
-        test = src.dataset.PoseDataset(
+        test = projection_gan.pose.pose_dataset.PoseDataset(
             opts.root, action=act_name, length=opts.l_seq,
             train=False, noise_scale=opts.noise_scale)
         test_iter = iterators.MultiprocessIterator(
@@ -72,7 +69,9 @@ if __name__ == '__main__':
                 xy_real = xy + noise
                 z_pred = gen(xy_real)
 
-            deg_sin = updater.Updater.calculate_rotation(chainer.Variable(xy_real), z_pred).data[:, :, :, 0]
+            deg_sin = projection_gan.pose.updater.Updater.calculate_rotation(chainer.Variable(xy_real), z_pred).data[:,
+                      :, :,
+                      0]
 
             # noiseがある場合はnoiseも評価に入れる
             xx = gen.xp.power(noise[:, :, :, 0::2], 2)

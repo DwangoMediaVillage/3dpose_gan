@@ -10,15 +10,14 @@ import pickle
 import tqdm
 import subprocess
 import sys
-sys.path.append(os.getcwd())
-
 import chainer
 import chainer.functions as F
 from chainer import serializers
 from chainer import Variable
 
-import dataset
-import models.net
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+import projection_gan
+
 
 def color_jet(x):
     if x < 0.25:
@@ -39,9 +38,10 @@ def color_jet(x):
         r = 255
     return int(b), int(g), int(r)
 
+
 def create_img(k, j, i, variable):
-    ps = np.array([0,1,2,0,4,5,0,7,8,9,8,11,12,8,14,15])
-    qs = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16])
+    ps = np.array([0, 1, 2, 0, 4, 5, 0, 7, 8, 9, 8, 11, 12, 8, 14, 15])
+    qs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
     xs = variable.data[j, 0, i, 0::2].copy()
     ys = variable.data[j, 0, i, 1::2].copy()
     xs *= 100
@@ -61,6 +61,7 @@ def create_img(k, j, i, variable):
         b, g, r = color_jet(c)
         img = cv2.circle(img, (xs[i], ys[i]), 3, (b, g, r), 3)
     return img
+
 
 if __name__ == '__main__':
     print(subprocess.check_output(['pyenv', 'version']).decode('utf-8').strip())
@@ -82,16 +83,16 @@ if __name__ == '__main__':
 
     imgs = np.zeros((l_seq, 350 * col, 600 * row, 3), dtype=np.uint8)
     if options.nn == 'conv':
-        model = models.net.ConvAE(
+        model = projection_gan.pose.posenet.ConvAE(
             l_latent=options.l_latent, l_seq=l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     elif options.nn == 'linear':
-        model = models.net.Linear(
+        model = projection_gan.pose.posenet.Linear(
             l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    train = dataset.PoseDataset(options.root, action=action, length=l_seq,
-                                train=False, noise_scale=options.noise_scale)
+    train = projection_gan.pose.pose_dataset.PoseDataset(options.root, action=action, length=l_seq,
+                                                         train=False, noise_scale=options.noise_scale)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         for k in tqdm.tqdm(range(col)):
@@ -100,9 +101,6 @@ if __name__ == '__main__':
             xy, z, scale, noise = batch
             xy_real = Variable(xy + noise)
             z_pred = model(xy_real)
-
-            import updater
-            print(updater.Updater.calculate_heuristic_loss(xy_real, z_pred))
 
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
             cos_theta = Variable(np.broadcast_to(np.cos(theta), z_pred.shape[::-1]).transpose(3, 2, 1, 0))
@@ -127,7 +125,7 @@ if __name__ == '__main__':
                     im0 = create_img(k, j, i, xy_real)
                     im1 = create_img(k, j, i, real)
                     im2 = create_img(k, j, i, fake)
-                    imgs[i, k*350:(k+1)*350, j*600:(j+1)*600] = np.concatenate((im0, im1, im2), axis=1)
+                    imgs[i, k * 350:(k + 1) * 350, j * 600:(j + 1) * 600] = np.concatenate((im0, im1, im2), axis=1)
 
     if not os.path.exists(os.path.join(os.path.dirname(model_path), 'videos')):
         os.mkdir(os.path.join(os.path.dirname(model_path), 'videos'))

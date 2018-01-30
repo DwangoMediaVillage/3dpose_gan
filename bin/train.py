@@ -18,12 +18,11 @@ import chainerui.utils
 import os
 import sys
 
-sys.path.append(os.getcwd())
-from models.net import ConvAE, Linear
-from dataset import PoseDataset
-
-from updater import Updater
-from evaluator import Evaluator
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from projection_gan.pose.posenet import ConvAE, Linear
+from projection_gan.pose.pose_dataset import PoseDataset
+from projection_gan.pose.updater import Updater
+from projection_gan.pose.evaluator import Evaluator
 
 
 class WeightClipping(object):
