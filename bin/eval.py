@@ -69,24 +69,16 @@ if __name__ == '__main__':
                 xy_real = xy + noise
                 z_pred = gen(xy_real)
 
-            deg_sin = projection_gan.pose.updater.Updater.calculate_rotation(chainer.Variable(xy_real), z_pred).data[:,
-                      :, :,
-                      0]
+            deg_sin = projection_gan.pose.updater.Updater.calculate_rotation(
+                chainer.Variable(xy_real), z_pred).data[:, :, :, 0]
 
             # noiseがある場合はnoiseも評価に入れる
             xx = gen.xp.power(noise[:, :, :, 0::2], 2)
             yy = gen.xp.power(noise[:, :, :, 1::2], 2)
 
-            # zを反転しない場合
-            zz1 = gen.xp.power(z - z_pred.data, 2)
-            m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
-
-            # zに-1を掛けて反転した場合のLoss
-            zz2 = gen.xp.power(z + z_pred.data, 2)
-            m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
-
-            # sin値が負ならzに-1を掛けて反転した場合のLossを使用
-            mae = gen.xp.where(deg_sin[:, 0] >= 0, m1, m2)
+            zz = gen.xp.power(z - z_pred.data, 2)
+            mae = gen.xp.sqrt(xx + yy + zz).mean(axis=3)[:, 0]
+            
             mae *= scale
             mae = gen.xp.mean(mae)
             maes.append(mae * len(batch))
