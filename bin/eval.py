@@ -24,6 +24,8 @@ if __name__ == '__main__':
                         help='Generatorの重みファイルへのパス')
     parser.add_argument('--gpu', '-g', type=int, default=0)
     parser.add_argument('--batchsize', '-b', type=int, default=200)
+    parser.add_argument('--allow_inversion', action="store_true",
+                         help='評価時にzの反転を許可するかどうか')
     args = parser.parse_args()
 
     # 学習時のオプションの読み込み
@@ -76,9 +78,20 @@ if __name__ == '__main__':
             xx = gen.xp.power(noise[:, :, :, 0::2], 2)
             yy = gen.xp.power(noise[:, :, :, 1::2], 2)
 
-            zz = gen.xp.power(z - z_pred.data, 2)
-            mae = gen.xp.sqrt(xx + yy + zz).mean(axis=3)[:, 0]
-            
+            # zを反転しない場合
+            zz1 = gen.xp.power(z - z_pred.data, 2)
+            m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
+
+            if args.allow_inversion:
+                # zに-1を掛けて反転した場合のLoss
+                zz2 = gen.xp.power(z + z_pred.data, 2)
+                m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
+
+                # sin値が負ならzに-1を掛けて反転した場合のLossを使用
+                mae = gen.xp.where(deg_sin[:, 0] >= 0, m1, m2)
+            else:
+                mae = m1
+
             mae *= scale
             mae = gen.xp.mean(mae)
             maes.append(mae * len(batch))
