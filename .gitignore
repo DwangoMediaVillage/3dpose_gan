@@ -107,3 +107,4 @@ ENV/
 data/h3.6m
 results*
 .DS_Store
+h36m*

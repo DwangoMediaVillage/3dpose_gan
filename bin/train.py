@@ -20,7 +20,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from projection_gan.pose.posenet import ConvAE, Linear
-from projection_gan.pose.pose_dataset import PoseDataset
+from projection_gan.pose.pose_dataset import PoseDataset, SHDataset
 from projection_gan.pose.updater import Updater
 from projection_gan.pose.evaluator import Evaluator
 
@@ -133,9 +133,9 @@ def main():
         opt_dis.add_hook(WeightClipping(0.01))
 
     # データセットの読み込み
-    train = PoseDataset(args.root, action=args.action, length=args.l_seq,
+    train = SHDataset(args.root, action=args.action, length=args.l_seq,
                         train=True, noise_scale=args.noise_scale)
-    test = PoseDataset(args.root, action=args.action, length=args.l_seq,
+    test = SHDataset(args.root, action=args.action, length=args.l_seq,
                        train=False, noise_scale=args.noise_scale)
     multiprocessing.set_start_method('spawn')
     train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)

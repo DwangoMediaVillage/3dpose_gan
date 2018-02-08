@@ -91,7 +91,7 @@ if __name__ == '__main__':
             l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    train = projection_gan.pose.pose_dataset.PoseDataset(options.root, action=action, length=l_seq,
+    train = projection_gan.pose.pose_dataset.SHDataset(options.root, action=action, length=l_seq,
                                                          train=False, noise_scale=options.noise_scale)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
