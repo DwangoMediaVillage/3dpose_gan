@@ -81,7 +81,7 @@ class ConvAE(chainer.Chain):
 
 
 class Linear(chainer.Chain):
-    def __init__(self, l_latent=64, l_seq=1, unit=128, mode='generator',
+    def __init__(self, l_latent=64, l_seq=1, unit=1024, mode='generator',
                  bn=False, activate_func=F.relu):
         super(Linear, self).__init__()
         n_out = l_seq * 17 if mode == 'generator' else 1
@@ -95,20 +95,20 @@ class Linear(chainer.Chain):
             self.l1 = L.Linear(l_seq * 34, unit, initialW=w)
             self.l2 = L.Linear(unit, unit, initialW=w)
             self.l3 = L.Linear(unit, unit, initialW=w)
-            self.l4 = L.Linear(unit, unit, initialW=w)
-            self.l5 = L.Linear(unit, unit, initialW=w)
-            self.l6 = L.Linear(unit, unit, initialW=w)
-            self.l7 = L.Linear(unit, unit, initialW=w)
+            # self.l4 = L.Linear(unit, unit, initialW=w)
+            # self.l5 = L.Linear(unit, unit, initialW=w)
+            # self.l6 = L.Linear(unit, unit, initialW=w)
+            # self.l7 = L.Linear(unit, unit, initialW=w)
             self.l8 = L.Linear(unit, n_out, initialW=w)
 
             if self.bn:
                 self.bn1 = L.BatchNormalization(unit)
                 self.bn2 = L.BatchNormalization(unit)
                 self.bn3 = L.BatchNormalization(unit)
-                self.bn4 = L.BatchNormalization(unit)
-                self.bn5 = L.BatchNormalization(unit)
-                self.bn6 = L.BatchNormalization(unit)
-                self.bn7 = L.BatchNormalization(unit)
+                # self.bn4 = L.BatchNormalization(unit)
+                # self.bn5 = L.BatchNormalization(unit)
+                # self.bn6 = L.BatchNormalization(unit)
+                # self.bn7 = L.BatchNormalization(unit)
 
     def __call__(self, x):
         x = F.reshape(x, (len(x), -1))
@@ -116,20 +116,20 @@ class Linear(chainer.Chain):
             h1 = self.activate_func(self.bn1(self.l1(x)))
             h2 = self.activate_func(self.bn2(self.l2(h1)))
             h3 = self.activate_func(self.bn3(self.l3(h2)) + h1)
-            h4 = self.activate_func(self.bn4(self.l4(h3)))
-            h5 = self.activate_func(self.bn5(self.l5(h4)) + h3)
-            h6 = self.activate_func(self.bn6(self.l6(h5)))
-            h7 = self.activate_func(self.bn7(self.l7(h6)) + h5)
-            h8 = self.l8(h7)
+            # h4 = self.activate_func(self.bn4(self.l4(h3)))
+            # h5 = self.activate_func(self.bn5(self.l5(h4)) + h3)
+            # h6 = self.activate_func(self.bn6(self.l6(h5)))
+            # h7 = self.activate_func(self.bn7(self.l7(h6)) + h5)
+            h8 = self.l8(h3)
         else:
             h1 = self.activate_func(self.l1(x))
             h2 = self.activate_func(self.l2(h1))
             h3 = self.activate_func(self.l3(h2) + h1)
-            h4 = self.activate_func(self.l4(h3))
-            h5 = self.activate_func(self.l5(h4) + h3)
-            h6 = self.activate_func(self.l6(h5))
-            h7 = self.activate_func(self.l7(h6) + h5)
-            h8 = self.l8(h7)
+            # h4 = self.activate_func(self.l4(h3))
+            # h5 = self.activate_func(self.l5(h4) + h3)
+            # h6 = self.activate_func(self.l6(h5))
+            # h7 = self.activate_func(self.l7(h6) + h5)
+            h8 = self.l8(h3)
         if self.mode == 'generator':
             h8 = F.reshape(h8, (len(h8), 1, self.l_seq, 17))
         return h8
