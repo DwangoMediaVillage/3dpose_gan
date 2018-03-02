@@ -133,10 +133,14 @@ def main():
         opt_dis.add_hook(WeightClipping(0.01))
 
     # データセットの読み込み
-    train = SHDataset(args.root, action=args.action, length=args.l_seq,
-                        train=True, noise_scale=args.noise_scale)
-    test = SHDataset(args.root, action=args.action, length=args.l_seq,
-                       train=False, noise_scale=args.noise_scale)
+    with open('data/points_3d.pickle', 'rb') as f:
+        p3d = pickle.load(f)
+    with open('data/cameras.pickle', 'rb') as f:
+        cams = pickle.load(f)
+    train = PoseDataset(p3d, cams, action=args.action, length=args.l_seq,
+                        train=True)
+    test = PoseDataset(p3d, cams, action=args.action, length=args.l_seq,
+                       train=False)
     multiprocessing.set_start_method('spawn')
     train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
     test_iter = chainer.iterators.MultiprocessIterator(

@@ -54,9 +54,9 @@ class Updater(chainer.training.StandardUpdater):
 
         batch = self.get_iterator('main').next()
         batchsize = len(batch)
-        xy, z, scale, noise = chainer.dataset.concat_examples(batch, self.device)
+        xy, xyz, scale = chainer.dataset.concat_examples(batch, self.device)
 
-        xy_real = Variable(xy + noise)
+        xy_real = Variable(xy)
         z_pred = gen(xy_real)
 
         # Random rotation.
@@ -81,7 +81,7 @@ class Updater(chainer.training.StandardUpdater):
 
         y_real = dis(xy_real)
         y_fake = dis(xy_fake)
-        mse = F.mean_squared_error(z_pred, z)
+        mse = F.mean_squared_error(z_pred, xyz[:, :, :, 2::3])
 
         if self.mode == 'supervised':
             gen.cleargrads()

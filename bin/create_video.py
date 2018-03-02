@@ -46,7 +46,7 @@ def create_img(k, j, i, variable):
     ys = variable.data[j, 0, i, 1::2].copy()
     xs *= 100
     xs += 100
-    ys *= -100
+    ys *= 100
     ys += 150
     img = np.zeros((350, 200, 3), dtype=np.uint8) + 160
     img = cv2.line(img, (100, 0), (100, 350), (255, 255, 255), 1)
@@ -91,15 +91,19 @@ if __name__ == '__main__':
             l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    train = projection_gan.pose.pose_dataset.SHDataset(options.root, action=action, length=l_seq,
-                                                         train=False, noise_scale=options.noise_scale)
+    with open('data/points_3d.pickle', 'rb') as f:
+        p3d = pickle.load(f)
+    with open('data/cameras.pickle', 'rb') as f:
+        cams = pickle.load(f)
+    train = projection_gan.pose.pose_dataset.PoseDataset(p3d, cams, action=action, length=l_seq,
+                                                         train=False)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         for k in tqdm.tqdm(range(col)):
             batch = train_iter.next()
             batch = chainer.dataset.concat_examples(batch)
-            xy, z, scale, noise = batch
-            xy_real = Variable(xy + noise)
+            xy, xyz, noise = batch
+            xy_real = Variable(xy)
             z_pred = model(xy_real)
 
             theta = np.array([np.pi / 2] * len(xy), dtype=np.float32)
@@ -108,9 +112,9 @@ if __name__ == '__main__':
             x = xy_real[:, :, :, 0::2]
             y = xy_real[:, :, :, 1::2]
 
-            xx = x * cos_theta + z * sin_theta
+            xx = Variable(xyz)[:, :, :, 0::3] * cos_theta + Variable(xyz)[:, :, :, 2::3] * sin_theta
             xx = xx[:, :, :, :, None]
-            yy = y[:, :, :, :, None]
+            yy = Variable(xyz)[:, :, :, 1::3][:, :, :, :, None]
             real = F.concat((xx, yy), axis=4)
             real = F.reshape(real, (*y.shape[:3], -1))
 

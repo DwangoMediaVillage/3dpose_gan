@@ -7,16 +7,78 @@ import chainer
 import os
 import glob
 import h5py
+import copy
+
+# Joints in H3.6M -- data has 32 joints, but only 17 that move; these are the indices.
+H36M_NAMES = ['']*32
+H36M_NAMES[0]  = 'Hip'
+H36M_NAMES[1]  = 'RHip'
+H36M_NAMES[2]  = 'RKnee'
+H36M_NAMES[3]  = 'RFoot'
+H36M_NAMES[6]  = 'LHip'
+H36M_NAMES[7]  = 'LKnee'
+H36M_NAMES[8]  = 'LFoot'
+H36M_NAMES[12] = 'Spine'
+H36M_NAMES[13] = 'Thorax'
+H36M_NAMES[14] = 'Neck/Nose'
+H36M_NAMES[15] = 'Head'
+H36M_NAMES[17] = 'LShoulder'
+H36M_NAMES[18] = 'LElbow'
+H36M_NAMES[19] = 'LWrist'
+H36M_NAMES[25] = 'RShoulder'
+H36M_NAMES[26] = 'RElbow'
+H36M_NAMES[27] = 'RWrist'
+
+
+def project_point_radial(P, R, T, f, c, k, p):
+    """
+    Project points from 3d to 2d using camera parameters
+    including radial and tangential distortion
+    Args
+    P: Nx3 points in world coordinates
+    R: 3x3 Camera rotation matrix
+    T: 3x1 Camera translation parameters
+    f: (scalar) Camera focal length
+    c: 2x1 Camera center
+    k: 3x1 Camera radial distortion coefficients
+    p: 2x1 Camera tangential distortion coefficients
+    Returns
+    Proj: Nx2 points in pixel space
+    D: 1xN depth of each point in camera space
+    radial: 1xN radial distortion per point
+    tan: 1xN tangential distortion per point
+    r2: 1xN squared radius of the projected points before distortion
+    """
+
+    # P is a matrix of 3-dimensional points
+    assert len(P.shape) == 2
+    assert P.shape[1] == 3
+
+    N = P.shape[0]
+    X = R.dot(P.T - T) # rotate and translate
+    XX = X[:2, :] / X[2, :]
+    r2 = XX[0, :]**2 + XX[1, :]**2
+
+    radial = 1 + np.einsum('ij,ij->j', np.tile(k, (1, N)), np.array([r2, r2**2, r2**3]))
+    tan = p[0] * XX[1, :] + p[1] * XX[0, :]
+
+    XXX = XX * np.tile(radial + tan, (2, 1)) + np.outer(np.array([p[1], p[0]]).reshape(-1), r2)
+
+    Proj = (f * XXX) + c
+    Proj = Proj.T
+
+    D = X[2,]
+
+    return Proj, D, radial, tan, r2
 
 
 class PoseDataset(chainer.dataset.DatasetMixin):
 
-    def __init__(self, root, action='all', length=32,
-                 train=True, noise_scale=0):
+    def __init__(self, p3d, cams, action='all', length=1, train=True):
         if train:
-            data_set = ['S1', 'S5', 'S6', 'S7', 'S8']
+            subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
         else:
-            data_set = ['S9', 'S11']
+            subjects = ['S9', 'S11']
 
         with open('data/actions.txt') as f:
             actions_all = f.read().split('\n')[:-1]
@@ -27,115 +89,90 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         else:
             raise Exception('Invalid action.')
 
+        # 使用する関節位置のインデックス(17点)
+        dim_to_use_x = np.where(np.array([x != '' for x in H36M_NAMES]))[0] * 3
+        dim_to_use_y = dim_to_use_x + 1
+        dim_to_use_z = dim_to_use_x + 2
+        dim_to_use = np.array([dim_to_use_x, dim_to_use_y, dim_to_use_z]).T.flatten()
+        self.N = len(dim_to_use_x)
+
+        p3d = copy.deepcopy(p3d)
         self.data_list = []
-        self.npys = {}
-        for action_name in actions:
-            for dirname in data_set:
-                npy_paths = glob.glob(os.path.join(
-                    root, dirname, '{}_*.npy'.format(action_name)))
-                npy_paths.sort()
-                for npy_path in npy_paths:
-                    basename = os.path.basename(npy_path)
-                    action = os.path.splitext(basename)[0]
-                    npy = np.load(npy_path)[::2]  # ダウンサンプリング
-                    L = len(npy)
-
-                    key = os.path.join(dirname, action)
-                    self.npys[key] = npy
-
-                    for start_pos in range(L - length + 1):
-                        info = {'dirname': dirname, 'action': action,
-                                'start_pos': start_pos, 'length': length}
-                        self.data_list.append(info)
+        for s in subjects:
+            for action_name in actions:
+                def search(a):
+                    fs = list(filter(
+                        lambda x: x.split()[0] == a, p3d[s].keys()))
+                    return fs
+                files = []
+                files += search(action_name)
+                # 'Photo' is 'TakingPhoto' in S1
+                if action_name == 'Photo':
+                    files += search('TakingPhoto')
+                # 'WalkDog' is 'WalkingDog' in S1
+                if action_name == 'WalkDog':
+                    files += search('WalkingDog')
+                for file_name in files:
+                    p3d[s][file_name] = p3d[s][file_name][::5] # 50Hz -> 10Hz
+                    p3d[s][file_name] = p3d[s][file_name][:, dim_to_use]
+                    L = p3d[s][file_name].shape[0]
+                    for cam_name in cams[s].keys():
+                        for start_pos in range(L - length + 1):
+                            info = {'subject': s, 'action_name': action_name,
+                                    'start_pos': start_pos, 'length': length,
+                                    'cam_name': cam_name, 'file_name': file_name}
+                            self.data_list.append(info)
+        self.p3d = p3d
+        self.cams = cams
         self.train = train
-        self.noise_scale = noise_scale
 
     def __len__(self):
         return len(self.data_list)
 
     def get_example(self, i):
         info = self.data_list[i]
-        dirname = info['dirname']
-        action = info['action']
+        subject = info['subject']
+        action_name = info['action_name']
         start_pos = info['start_pos']
         length = info['length']
+        cam_name = info['cam_name']
+        file_name = info['file_name']
 
-        key = os.path.join(dirname, action)
-        npy = self.npys[key]
+        poses_xyz = self.p3d[subject][file_name][start_pos:start_pos+length]
+        params = self.cams[subject][cam_name]
 
+        # カメラ位置からの平行投影
+        P = poses_xyz.reshape(-1, 3)
+        X = params['R'].dot(P.T).T
+        X = X.reshape(-1, self.N * 3)  # shape=(length, 3*n_joints)
 
-        normalized_xyz = []
-        scale = []
-        # TODO(kogaki): forではなくarrayのまま処理できるように(CPU使いすぎ)
-        for j in range(length):
-            a = npy[start_pos + j].copy()
+        # カメラパラメータを用いた画像上への投影
+        proj = project_point_radial(P, **params)[0]
+        proj = proj.reshape(-1, self.N * 2)  # shape=(length, 2*n_joints)
 
-            # index=0の関節位置が(0,0,0)になるようにシフト
-            a -= a[0]
+        # 3Dモデルの正規化
+        # hip(0)とneck(8)のxy平面上での距離が1になるようにスケール
+        xs = X[:, 0::3]
+        ys = X[:, 1::3]
+        scale = np.sqrt((xs[:, 0] - xs[:, 8])**2 + (ys[:, 0] - ys[:, 8])**2)
+        X = X.T / scale
+        # hip(0)が原点になるようにシフト
+        X[0::3] -= X[0]
+        X[1::3] -= X[1]
+        X[2::3] -= X[2]
+        X = X.T.astype(np.float32)[None]
 
-            # index=0と8の関節位置の距離が1になるようにスケール変換
-            body_length = np.sqrt(np.power(a[0] - a[8], 2).sum())
-            a /= body_length
-            scale.append(body_length)
+        # 2DPoseの正規化
+        # hip(0)とneck(8)の距離が1になるようにスケール
+        xs = proj[:, 0::2]
+        ys = proj[:, 1::2]
+        proj = proj.T / np.sqrt((xs[:, 0] - xs[:, 8])**2 + (ys[:, 0] - ys[:, 8])**2)
+        # hip(0)が原点になるようにシフト
+        proj[0::2] -= proj[0]
+        proj[1::2] -= proj[1]
+        proj = proj.T.astype(np.float32)[None]
 
-            # z軸回りの回転（index=8の関節位置がx=0となるように）
-            x, y = a[8, :2]
-            cos_gamma = y / np.sqrt(x**2 + y**2)
-            sin_gamma = x / np.sqrt(x**2 + y**2)
-            def rotZ(arr):
-                x, y, z = arr
-                xx = x * cos_gamma - y * sin_gamma
-                yy = x * sin_gamma + y * cos_gamma
-                zz = z
-                return np.array([xx, yy, zz], dtype=arr.dtype)
-            a2 = np.array(list(map(rotZ, list(a))))
-
-            # x軸回りの回転（index=8の関節位置がy軸上に来るように）
-            y2, z2 = a2[8, 1:]
-            cos_alpha = y2 / np.sqrt(y2**2 + z2**2)
-            sin_alpha = -z2 / np.sqrt(y2**2 + z2**2)
-            def rotX(arr):
-                x, y, z = arr
-                xx = x
-                yy = y * cos_alpha - z * sin_alpha
-                zz = y * sin_alpha + z * cos_alpha
-                return np.array([xx, yy, zz], dtype=arr.dtype)
-            a3 = np.array(list(map(rotX, list(a2))))
-
-            # y軸回りの回転（回転角はrandomに決定）
-            if j == 0:
-                if self.train:
-                    beta = np.random.randint(0, 4, 1) * np.pi / 2
-                else:
-                    beta = 0
-            def rotY(arr):
-                x, y, z = arr
-                xx = x * np.cos(beta) + z * np.sin(beta)
-                yy = y
-                zz = -x * np.sin(beta) + z * np.cos(beta)
-                return np.array([xx, yy, zz], dtype=arr.dtype)
-            a4 = np.array(list(map(rotY, list(a3))))
-
-            normalized_xyz.append(a4)
-        normalized_xyz = np.array(normalized_xyz)
-        xy = normalized_xyz[:, :, :2]
-        xy = xy.reshape(length, -1)[None, :, :].astype(np.float32)
-
-        z = normalized_xyz[:, :, 2]
-        z = z.reshape(length, -1)[None, :, :].astype(np.float32)
-
-        scale = np.array(scale, dtype=np.float32)
-
-        if not self.train:
-            np.random.seed(i)
-        if self.noise_scale > 0:
-            noise = np.random.normal(
-                scale=self.noise_scale, size=xy.shape).astype(np.float32)
-        else:
-            noise = np.zeros(xy.shape, dtype=np.float32)
-        noise = noise / scale[None, :, None]
-
-        return xy, z, scale, noise
+        return proj, X, scale.astype(np.float32)
 
 
 class SHDataset(chainer.dataset.DatasetMixin):
