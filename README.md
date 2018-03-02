@@ -20,6 +20,7 @@
     wget https://www.dropbox.com/s/f8fn0midnswvo03/points.tar.gz
     tar zxvf points.tar.gz
     rm points.tar.gz
+    wget https://www.dropbox.com/s/n8344hwlc1lwxiw/sh_detect.pickle
     cd ..
     ```
 

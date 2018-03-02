@@ -95,8 +95,8 @@ if __name__ == '__main__':
         p3d = pickle.load(f)
     with open('data/cameras.pickle', 'rb') as f:
         cams = pickle.load(f)
-    train = projection_gan.pose.pose_dataset.PoseDataset(p3d, cams, action=action, length=l_seq,
-                                                         train=False)
+    train = projection_gan.pose.pose_dataset.PoseDataset(
+        action=action, length=l_seq, train=False, use_sh_detection=options.use_sh_detection)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         for k in tqdm.tqdm(range(col)):

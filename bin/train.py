@@ -20,7 +20,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from projection_gan.pose.posenet import ConvAE, Linear
-from projection_gan.pose.pose_dataset import PoseDataset, SHDataset
+from projection_gan.pose.pose_dataset import PoseDataset
 from projection_gan.pose.updater import Updater
 from projection_gan.pose.evaluator import Evaluator
 
@@ -81,6 +81,7 @@ def main():
                         help='xyに加えるガウシアンノイズの大きさ')
     parser.add_argument('--use_heuristic_loss', action="store_true")
     parser.add_argument('--heuristic_loss_weight', type=float, default=1.0)
+    parser.add_argument('--use_sh_detection', action="store_true")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -133,14 +134,10 @@ def main():
         opt_dis.add_hook(WeightClipping(0.01))
 
     # データセットの読み込み
-    with open('data/points_3d.pickle', 'rb') as f:
-        p3d = pickle.load(f)
-    with open('data/cameras.pickle', 'rb') as f:
-        cams = pickle.load(f)
-    train = PoseDataset(p3d, cams, action=args.action, length=args.l_seq,
-                        train=True)
-    test = PoseDataset(p3d, cams, action=args.action, length=args.l_seq,
-                       train=False)
+    train = PoseDataset(action=args.action, length=args.l_seq,
+                        train=True, use_sh_detection=args.use_sh_detection)
+    test = PoseDataset(action=args.action, length=args.l_seq,
+                       train=False, use_sh_detection=args.use_sh_detection)
     multiprocessing.set_start_method('spawn')
     train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
     test_iter = chainer.iterators.MultiprocessIterator(
