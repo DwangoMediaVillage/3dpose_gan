@@ -151,10 +151,11 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         proj = proj.reshape(-1, self.N * 2)  # shape=(length, 2*n_joints)
 
         # 3Dモデルの正規化
-        # hip(0)とneck(8)のxy平面上での距離が1になるようにスケール
-        xs = X[:, 0::3]
-        ys = X[:, 1::3]
-        scale = np.sqrt((xs[:, 0] - xs[:, 8])**2 + (ys[:, 0] - ys[:, 8])**2)
+        # hip(0)と各関節点の距離の平均値が1になるようにスケール
+        xs = X.T[0::3] - X.T[0]
+        ys = X.T[1::3] - X.T[1]
+        ls = np.sqrt(xs[1:]**2 + ys[1:]**2)  # 原点からの距離 shape=(N-1,length)
+        scale = ls.mean(axis=0)
         X = X.T / scale
         # hip(0)が原点になるようにシフト
         X[0::3] -= X[0]
@@ -163,10 +164,10 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         X = X.T.astype(np.float32)[None]
 
         # 2DPoseの正規化
-        # hip(0)とneck(8)の距離が1になるようにスケール
-        xs = proj[:, 0::2]
-        ys = proj[:, 1::2]
-        proj = proj.T / np.sqrt((xs[:, 0] - xs[:, 8])**2 + (ys[:, 0] - ys[:, 8])**2)
+        # hip(0)と各関節点の距離の平均値が1になるようにスケール
+        xs = proj.T[0::2] - proj.T[0]
+        ys = proj.T[1::2] - proj.T[1]
+        proj = proj.T / np.sqrt(xs[1:]**2 + ys[1:]**2).mean(axis=0)
         # hip(0)が原点になるようにシフト
         proj[0::2] -= proj[0]
         proj[1::2] -= proj[1]
