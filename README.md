@@ -17,6 +17,9 @@
     wget https://www.dropbox.com/s/dgtpcudkm1jndh3/h3.6m.tar.gz
     tar zxvf h3.6m.tar.gz
     rm h3.6m.tar.gz
+    wget https://www.dropbox.com/s/f8fn0midnswvo03/points.tar.gz
+    tar zxvf points.tar.gz
+    rm points.tar.gz
     cd ..
     ```
 
