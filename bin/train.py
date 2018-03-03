@@ -20,7 +20,7 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from projection_gan.pose.posenet import ConvAE, Linear
-from projection_gan.pose.pose_dataset import PoseDataset
+from projection_gan.pose.pose_dataset import PoseDataset, MPII
 from projection_gan.pose.updater import Updater
 from projection_gan.pose.evaluator import Evaluator
 
@@ -82,6 +82,7 @@ def main():
     parser.add_argument('--use_heuristic_loss', action="store_true")
     parser.add_argument('--heuristic_loss_weight', type=float, default=1.0)
     parser.add_argument('--use_sh_detection', action="store_true")
+    parser.add_argument('--use_mpii', action="store_true")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -138,6 +139,9 @@ def main():
                         train=True, use_sh_detection=args.use_sh_detection)
     test = PoseDataset(action=args.action, length=args.l_seq,
                        train=False, use_sh_detection=args.use_sh_detection)
+    if args.use_mpii:
+        train = MPII(train=True, use_sh_detection=args.use_sh_detection)
+        test = MPII(train=False, use_sh_detection=args.use_sh_detection)
     multiprocessing.set_start_method('spawn')
     train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
     test_iter = chainer.iterators.MultiprocessIterator(

@@ -207,3 +207,39 @@ class PoseDataset(chainer.dataset.DatasetMixin):
             sh_detect_xy = sh_detect_xy.T.astype(np.float32)[None]
 
             return sh_detect_xy, X, scale.astype(np.float32)
+
+
+class MPII(chainer.dataset.DatasetMixin):
+    def __init__(self, train=True, use_sh_detection=False):
+        if use_sh_detection:
+            raise NotImplementedError
+        else:
+            self.poses = np.load('data/mpii_poses.npy')
+
+        np.random.seed(100)
+        perm = np.random.permutation(len(self.poses))
+        if train:
+            self.poses = self.poses[perm[:int(len(self.poses)*0.9)]]
+        else:
+            self.poses = self.poses[perm[int(len(self.poses)*0.9):]]
+
+    def __len__(self):
+        return self.poses.shape[0]
+
+    def get_example(self, i):
+        mpii_poses = self.poses[i:i+1]
+        # hip(0)と各関節点の距離の平均値が1になるようにスケール
+        xs = mpii_poses.T[0::2] - mpii_poses.T[0]
+        ys = mpii_poses.T[1::2] - mpii_poses.T[1]
+        # hip(0)が原点になるようにシフト
+        mpii_poses = mpii_poses.T / np.sqrt(xs[1:]**2 + ys[1:]**2).mean(axis=0)
+        mpii_poses[0::2] -= mpii_poses[0]
+        mpii_poses[1::2] -= mpii_poses[1]
+        mpii_poses = mpii_poses.T.astype(np.float32)[None]
+
+        dummy_X = np.zeros((1, 1, 17*3), dtype=np.float32)
+        dummy_X[0, 0, 0::3] = mpii_poses[0, 0, 0::2]
+        dummy_X[0, 0, 1::3] = mpii_poses[0, 0, 1::2]
+        dummy_scale = np.array([1], dtype=np.float32)
+
+        return mpii_poses, dummy_X, dummy_scale
