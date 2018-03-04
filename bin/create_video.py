@@ -91,10 +91,7 @@ if __name__ == '__main__':
             l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    with open('data/points_3d.pickle', 'rb') as f:
-        p3d = pickle.load(f)
-    with open('data/cameras.pickle', 'rb') as f:
-        cams = pickle.load(f)
+    
     train = projection_gan.pose.pose_dataset.PoseDataset(
         action=action, length=l_seq, train=False, use_sh_detection=options.use_sh_detection)
     if options.use_mpii:
