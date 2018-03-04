@@ -142,9 +142,9 @@ def main():
     if args.use_mpii:
         train = MPII(train=True, use_sh_detection=args.use_sh_detection)
         test = MPII(train=False, use_sh_detection=args.use_sh_detection)
-    multiprocessing.set_start_method('spawn')
-    train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
-    test_iter = chainer.iterators.MultiprocessIterator(
+    # multiprocessing.set_start_method('spawn')
+    train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
+    test_iter = chainer.iterators.SerialIterator(
         test, args.test_batchsize, repeat=False, shuffle=False)
 
     # Set up a trainer
