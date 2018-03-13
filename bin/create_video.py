@@ -72,6 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('--col', type=int, default=6)
     parser.add_argument('--action', '-a', type=str, default='')
     parser.add_argument('--image', action='store_true')
+    parser.add_argument('--use_mpii', action="store_true")
+    parser.add_argument('--use_mpii_inf_3dhp', action="store_true")
     args = parser.parse_args()
 
     col, row = args.col, args.row
@@ -91,13 +93,17 @@ if __name__ == '__main__':
             l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
             bn=options.bn, activate_func=getattr(F, options.act_func))
     serializers.load_npz(model_path, model)
-    
-    train = projection_gan.pose.pose_dataset.PoseDataset(
-        action=action, length=l_seq, train=False, use_sh_detection=options.use_sh_detection)
+
+    if not args.use_mpii and not args.use_mpii_inf_3dhp:
+        train = projection_gan.pose.dataset.pose_dataset.PoseDataset(
+            action=action, length=l_seq, train=False, use_sh_detection=options.use_sh_detection)
+    if args.use_mpii_inf_3dhp:
+        train = projection_gan.pose.dataset.mpii_inf_3dhp_dataset.MPII3DDataset(annotations_glob="/mnt/dataset/MPII_INF_3DHP/mpi_inf_3dhp/S1/*/annot.mat", train=True)
     if options.use_mpii:
-        train = projection_gan.pose.pose_dataset.MPII(
+        train = projection_gan.pose.dataset.pose_dataset.MPII(
             train=False, use_sh_detection=options.use_sh_detection)
     train_iter = chainer.iterators.SerialIterator(train, batch_size=row, shuffle=True, repeat=False)
+
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
         for k in tqdm.tqdm(range(col)):
             batch = train_iter.next()

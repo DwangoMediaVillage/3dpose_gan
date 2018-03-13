@@ -2,22 +2,23 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2017 Yasunori Kudo
 
-import chainer
 import copy
-import glob
-import numpy as np
-import os
 import pickle
 
+import chainer
+import numpy as np
+
+from . import pose_dataset_base
+
 # Joints in H3.6M -- data has 32 joints, but only 17 that move; these are the indices.
-H36M_NAMES = ['']*32
-H36M_NAMES[0]  = 'Hip'
-H36M_NAMES[1]  = 'RHip'
-H36M_NAMES[2]  = 'RKnee'
-H36M_NAMES[3]  = 'RFoot'
-H36M_NAMES[6]  = 'LHip'
-H36M_NAMES[7]  = 'LKnee'
-H36M_NAMES[8]  = 'LFoot'
+H36M_NAMES = [''] * 32
+H36M_NAMES[0] = 'Hip'
+H36M_NAMES[1] = 'RHip'
+H36M_NAMES[2] = 'RKnee'
+H36M_NAMES[3] = 'RFoot'
+H36M_NAMES[6] = 'LHip'
+H36M_NAMES[7] = 'LKnee'
+H36M_NAMES[8] = 'LFoot'
 H36M_NAMES[12] = 'Spine'
 H36M_NAMES[13] = 'Thorax'
 H36M_NAMES[14] = 'Neck/Nose'
@@ -55,11 +56,11 @@ def project_point_radial(P, R, T, f, c, k, p):
     assert P.shape[1] == 3
 
     N = P.shape[0]
-    X = R.dot(P.T - T) # rotate and translate
+    X = R.dot(P.T - T)  # rotate and translate
     XX = X[:2, :] / X[2, :]
-    r2 = XX[0, :]**2 + XX[1, :]**2
+    r2 = XX[0, :] ** 2 + XX[1, :] ** 2
 
-    radial = 1 + np.einsum('ij,ij->j', np.tile(k, (1, N)), np.array([r2, r2**2, r2**3]))
+    radial = 1 + np.einsum('ij,ij->j', np.tile(k, (1, N)), np.array([r2, r2 ** 2, r2 ** 3]))
     tan = p[0] * XX[1, :] + p[1] * XX[0, :]
 
     XXX = XX * np.tile(radial + tan, (2, 1)) + np.outer(np.array([p[1], p[0]]).reshape(-1), r2)
@@ -72,7 +73,7 @@ def project_point_radial(P, R, T, f, c, k, p):
     return Proj, D, radial, tan, r2
 
 
-class PoseDataset(chainer.dataset.DatasetMixin):
+class PoseDataset(pose_dataset_base.PoseDatasetBase):
 
     def __init__(self, action='all', length=1, train=True, use_sh_detection=False):
         if train:
@@ -114,6 +115,7 @@ class PoseDataset(chainer.dataset.DatasetMixin):
                     fs = list(filter(
                         lambda x: x.split()[0] == a, p3d[s].keys()))
                     return fs
+
                 files = []
                 files += search(action_name)
                 # 'Photo' is 'TakingPhoto' in S1
@@ -123,6 +125,7 @@ class PoseDataset(chainer.dataset.DatasetMixin):
                 if action_name == 'WalkDog':
                     files += search('WalkingDog')
                 for file_name in files:
+                    p3d[s][file_name] = p3d[s][file_name][::5]  # 50Hz -> 10Hz
                     p3d[s][file_name] = p3d[s][file_name][:, dim_to_use]
                     L = p3d[s][file_name].shape[0]
                     for cam_name in cams[s].keys():
@@ -151,7 +154,7 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         cam_name = info['cam_name']
         file_name = info['file_name']
 
-        poses_xyz = self.p3d[subject][file_name][start_pos:start_pos+length]
+        poses_xyz = self.p3d[subject][file_name][start_pos:start_pos + length]
         params = self.cams[subject][cam_name]
         if self.use_sh_detection:
             if 'TakingPhoto' in file_name:
@@ -165,34 +168,13 @@ class PoseDataset(chainer.dataset.DatasetMixin):
         X = params['R'].dot(P.T).T
         X = X.reshape(-1, self.N * 3)  # shape=(length, 3*n_joints)
 
-        # 3Dモデルの正規化
-        # hip(0)と各関節点の距離の平均値が1になるようにスケール
-        xs = X.T[0::3] - X.T[0]
-        ys = X.T[1::3] - X.T[1]
-        ls = np.sqrt(xs[1:]**2 + ys[1:]**2)  # 原点からの距離 shape=(N-1,length)
-        scale = ls.mean(axis=0)
-        X = X.T / scale
-        # hip(0)が原点になるようにシフト
-        X[0::3] -= X[0]
-        X[1::3] -= X[1]
-        X[2::3] -= X[2]
-        X = X.T.astype(np.float32)[None]
+        X, scale = self._normalize_3d(X)
 
         if not self.use_sh_detection:
             # カメラパラメータを用いた画像上への投影
             proj = project_point_radial(P, **params)[0]
             proj = proj.reshape(-1, self.N * 2)  # shape=(length, 2*n_joints)
-
-            # Ground Truth 2DPoseの正規化
-            # hip(0)と各関節点の距離の平均値が1になるようにスケール
-            xs = proj.T[0::2] - proj.T[0]
-            ys = proj.T[1::2] - proj.T[1]
-            proj = proj.T / np.sqrt(xs[1:]**2 + ys[1:]**2).mean(axis=0)
-            # hip(0)が原点になるようにシフト
-            proj[0::2] -= proj[0]
-            proj[1::2] -= proj[1]
-            proj = proj.T.astype(np.float32)[None]
-
+            proj = self._normalize_2d(proj)
             return proj, X, scale.astype(np.float32)
 
         else:

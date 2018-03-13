@@ -20,7 +20,8 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from projection_gan.pose.posenet import ConvAE, Linear
-from projection_gan.pose.pose_dataset import PoseDataset, MPII
+from projection_gan.pose.dataset.pose_dataset import PoseDataset, MPII
+from projection_gan.pose.dataset.mpii_inf_3dhp_dataset import MPII3DDataset
 from projection_gan.pose.updater import Updater
 from projection_gan.pose.evaluator import Evaluator
 
@@ -83,6 +84,7 @@ def main():
     parser.add_argument('--heuristic_loss_weight', type=float, default=1.0)
     parser.add_argument('--use_sh_detection', action="store_true")
     parser.add_argument('--use_mpii', action="store_true")
+    parser.add_argument('--use_mpii_inf_3dhp', action="store_true")
     args = parser.parse_args()
     args.dir = create_result_dir(args.dir)
     args.bn = args.bn == 't'
@@ -135,16 +137,20 @@ def main():
         opt_dis.add_hook(WeightClipping(0.01))
 
     # データセットの読み込み
-    train = PoseDataset(action=args.action, length=args.l_seq,
-                        train=True, use_sh_detection=args.use_sh_detection)
-    test = PoseDataset(action=args.action, length=args.l_seq,
-                       train=False, use_sh_detection=args.use_sh_detection)
+    if not args.use_mpii and not args.use_mpii_inf_3dhp:
+        train = PoseDataset(action=args.action, length=args.l_seq,
+                            train=True, use_sh_detection=args.use_sh_detection)
+        test = PoseDataset(action=args.action, length=args.l_seq,
+                           train=False, use_sh_detection=args.use_sh_detection)
     if args.use_mpii:
         train = MPII(train=True, use_sh_detection=args.use_sh_detection)
         test = MPII(train=False, use_sh_detection=args.use_sh_detection)
-    # multiprocessing.set_start_method('spawn')
-    train_iter = chainer.iterators.SerialIterator(train, args.batchsize)
-    test_iter = chainer.iterators.SerialIterator(
+    if args.use_mpii_inf_3dhp:
+        train = MPII3DDataset(train=True)
+        test = MPII3DDataset(train=False)
+    multiprocessing.set_start_method('spawn')
+    train_iter = chainer.iterators.MultiprocessIterator(train, args.batchsize)
+    test_iter = chainer.iterators.MultiprocessIterator(
         test, args.test_batchsize, repeat=False, shuffle=False)
 
     # Set up a trainer
@@ -185,7 +191,7 @@ def main():
     trainer.extend(extensions.LogReport(trigger=log_interval))
     trainer.extend(extensions.PrintReport([
         'epoch', 'iteration', 'gen/mse',
-        'gen/loss', 'gen/loss_heuristic','dis/loss', 'dis/acc', 'dis/acc/real',
+        'gen/loss', 'gen/loss_heuristic', 'dis/loss', 'dis/acc', 'dis/acc/real',
         'dis/acc/fake', 'validation/gen/mse',
         'validation/gen/mae1', 'validation/gen/mae2'
     ]), trigger=log_interval)

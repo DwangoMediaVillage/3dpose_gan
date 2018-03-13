@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # 各行動クラスに対して平均エラー(mm)を算出
     errors = []
     for act_name in actions:
-        test = projection_gan.pose.pose_dataset.PoseDataset(
+        test = projection_gan.pose.dataset.pose_dataset.PoseDataset(
             opts.root, action=act_name, length=opts.l_seq,
             train=False, noise_scale=opts.noise_scale)
         test_iter = iterators.MultiprocessIterator(
