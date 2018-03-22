@@ -15,53 +15,10 @@ import chainer.functions as F
 from chainer import serializers
 from chainer import Variable
 
+import evaluation_util
+
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import projection_gan
-
-
-def color_jet(x):
-    if x < 0.25:
-        b = 255
-        g = x / 0.25 * 255
-        r = 0
-    elif x >= 0.25 and x < 0.5:
-        b = 255 - (x - 0.25) / 0.25 * 255
-        g = 255
-        r = 0
-    elif x >= 0.5 and x < 0.75:
-        b = 0
-        g = 255
-        r = (x - 0.5) / 0.25 * 255
-    else:
-        b = 0
-        g = 255 - (x - 0.75) / 0.25 * 255
-        r = 255
-    return int(b), int(g), int(r)
-
-
-def create_img(k, j, i, variable):
-    ps = np.array([0, 1, 2, 0, 4, 5, 0, 7, 8, 9, 8, 11, 12, 8, 14, 15])
-    qs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-    xs = variable.data[j, 0, i, 0::2].copy()
-    ys = variable.data[j, 0, i, 1::2].copy()
-    xs *= 100
-    xs += 100
-    ys *= 100
-    ys += 150
-    img = np.zeros((350, 200, 3), dtype=np.uint8) + 160
-    img = cv2.line(img, (100, 0), (100, 350), (255, 255, 255), 1)
-    img = cv2.line(img, (0, 150), (200, 150), (255, 255, 255), 1)
-    img = cv2.rectangle(img, (0, 0), (200, 350), (255, 255, 255), 3)
-    for i, (p, q) in enumerate(zip(ps, qs)):
-        c = 1 / (len(ps) - 1) * i
-        b, g, r = color_jet(c)
-        img = cv2.line(img, (xs[p], ys[p]), (xs[q], ys[q]), (b, g, r), 2)
-    for i in range(17):
-        c = 1 / 16 * i
-        b, g, r = color_jet(c)
-        img = cv2.circle(img, (xs[i], ys[i]), 3, (b, g, r), 3)
-    return img
-
 
 if __name__ == '__main__':
     print(subprocess.check_output(['pyenv', 'version']).decode('utf-8').strip())
@@ -84,21 +41,15 @@ if __name__ == '__main__':
     action = args.action if args.action else options.action
 
     imgs = np.zeros((l_seq, 350 * col, 600 * row, 3), dtype=np.uint8)
-    if options.nn == 'conv':
-        model = projection_gan.pose.posenet.ConvAE(
-            l_latent=options.l_latent, l_seq=l_seq, mode='generator',
-            bn=options.bn, activate_func=getattr(F, options.act_func))
-    elif options.nn == 'linear':
-        model = projection_gan.pose.posenet.Linear(
-            l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
-            bn=options.bn, activate_func=getattr(F, options.act_func))
+    model = evaluation_util.load_model(options)
     serializers.load_npz(model_path, model)
 
     if not args.use_mpii and not args.use_mpii_inf_3dhp:
         train = projection_gan.pose.dataset.pose_dataset.PoseDataset(
             action=action, length=l_seq, train=False, use_sh_detection=options.use_sh_detection)
     if args.use_mpii_inf_3dhp:
-        train = projection_gan.pose.dataset.mpii_inf_3dhp_dataset.MPII3DDataset(annotations_glob="/mnt/dataset/MPII_INF_3DHP/mpi_inf_3dhp/S1/*/annot.mat", train=True)
+        train = projection_gan.pose.dataset.mpii_inf_3dhp_dataset.MPII3DDataset(
+            annotations_glob="/mnt/dataset/MPII_INF_3DHP/mpi_inf_3dhp/S1/*/annot.mat", train=True)
     if options.use_mpii:
         train = projection_gan.pose.dataset.pose_dataset.MPII(
             train=False, use_sh_detection=options.use_sh_detection)
@@ -109,6 +60,7 @@ if __name__ == '__main__':
             batch = train_iter.next()
             batch = chainer.dataset.concat_examples(batch)
             xy, xyz, noise = batch
+            print(xy)
             xy_real = Variable(xy)
             z_pred = model(xy_real)
 
@@ -132,9 +84,9 @@ if __name__ == '__main__':
 
             for j in range(row):
                 for i in range(l_seq):
-                    im0 = create_img(k, j, i, xy_real)
-                    im1 = create_img(k, j, i, real)
-                    im2 = create_img(k, j, i, fake)
+                    im0 = evaluation_util.create_img(j, i, xy_real)
+                    im1 = evaluation_util.create_img(j, i, real)
+                    im2 = evaluation_util.create_img(j, i, fake)
                     imgs[i, k * 350:(k + 1) * 350, j * 600:(j + 1) * 600] = np.concatenate((im0, im1, im2), axis=1)
 
     if not os.path.exists(os.path.join(os.path.dirname(model_path), 'videos')):

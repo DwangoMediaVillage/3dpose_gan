@@ -2,8 +2,9 @@ import chainer
 import numpy as np
 
 
-class PoseDatasetBase(chainer.dataset.DatasetMixin):
-    def _normalize_3d(self, pose):
+class Normalization(object):
+    @staticmethod
+    def normalize_3d(pose):
         # 3Dモデルの正規化
         # hip(0)と各関節点の距離の平均値が1になるようにスケール
         xs = pose.T[0::3] - pose.T[0]
@@ -18,7 +19,8 @@ class PoseDatasetBase(chainer.dataset.DatasetMixin):
         pose = pose.T.astype(np.float32)[None]
         return pose, scale
 
-    def _normalize_2d(self, pose):
+    @staticmethod
+    def normalize_2d(pose):
         # 2DPoseの正規化
         # hip(0)と各関節点の距離の平均値が1になるようにスケール
         xs = pose.T[0::2] - pose.T[0]
@@ -31,3 +33,11 @@ class PoseDatasetBase(chainer.dataset.DatasetMixin):
         pose[1::2] -= mu_y
         pose = pose.T.astype(np.float32)[None]
         return pose
+
+
+class PoseDatasetBase(chainer.dataset.DatasetMixin):
+    def _normalize_3d(self, pose):
+        return Normalization.normalize_3d(pose)
+
+    def _normalize_2d(self, pose):
+        return Normalization.normalize_2d(pose)

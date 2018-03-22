@@ -1,12 +1,28 @@
 # 2D Poseから3D PoseへProject
 
+
+## Run Inference (with openpose)
+
+1. Download openpose pretrained model
+    * openpose_pose_coco.prototxt
+        * https://github.com/opencv/opencv_extra/blob/3.4.1/testdata/dnn/openpose_pose_coco.prototxt
+    * pose_iter_440000.caffemodel
+        * http://posefs1.perception.cs.cmu.edu/OpenPose/models/pose/coco/pose_iter_440000.caffemodel
+2. Download 3dpose_gan pretrained model
+    * gen_epoch_500.npz
+        * TBA
+3. Run Inference
+    * ` python bin/demo.py your/image.png --lift_model gen_epoch_500.npz --model pose_iter_440000.caffemodel --proto2d pose_deploy_linevec.prototxt`
+    * **Need OpenCV >= 3.4**
+        * < 3.3 results extreamly wrong estimation
+
 ## 動作環境
   - Python 3.6.1
   - Cupy 2.2.0
   - Chainer 3.2.0
   - ChainerUI 0.1.0
   - tqdm 4.19.5 (動画作成時)
-  - OpenCV 3.1.0 with ffmpeg (動画作成時)
+  - OpenCV 3.4 with ffmpeg (動画作成時)
 
 ## セットアップ
   - データセットのダウンロード

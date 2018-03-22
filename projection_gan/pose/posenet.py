@@ -94,11 +94,12 @@ class Linear(chainer.Chain):
         with self.init_scope():
             self.l1 = L.Linear(l_seq * 34, unit, initialW=w)
             self.l2 = L.Linear(unit, unit, initialW=w)
+            # self.l3 = L.Linear(unit, unit, initialW=w)
             self.l3 = L.Linear(unit, unit, initialW=w)
-            self.l4 = L.Linear(unit, unit, initialW=w)
-            self.l5 = L.Linear(unit, unit, initialW=w)
-            self.l6 = L.Linear(unit, unit, initialW=w)
-            self.l7 = L.Linear(unit, unit, initialW=w)
+            # self.l4 = L.Linear(unit, unit, initialW=w)
+            # self.l5 = L.Linear(unit, unit, initialW=w)
+            # self.l6 = L.Linear(unit, unit, initialW=w)
+            # self.l7 = L.Linear(unit, unit, initialW=w)
             self.l8 = L.Linear(unit, n_out, initialW=w)
 
             if self.bn:
@@ -120,7 +121,7 @@ class Linear(chainer.Chain):
             # h5 = self.activate_func(self.bn5(self.l5(h4)) + h)
             # h6 = self.activate_func(self.bn6(self.l6(h5)))
             # h = self.activate_func(self.bn7(self.l7(h6)) + h5)
-            h8 = self.l8(h)
+            h = self.l8(h)
         else:
             h1 = self.activate_func(self.l1(x))
             h2 = self.activate_func(self.l2(h1))
@@ -129,7 +130,7 @@ class Linear(chainer.Chain):
             # h5 = self.activate_func(self.l5(h4) + h3)
             # h6 = self.activate_func(self.l6(h5))
             # h = self.activate_func(self.l7(h6) + h5)
-            h8 = self.l8(h)
+            h = self.l8(h)
         if self.mode == 'generator':
-            h8 = F.reshape(h8, (len(h8), 1, self.l_seq, 17))
-        return h8
+            h = F.reshape(h, (len(h), 1, self.l_seq, 17))
+        return h
