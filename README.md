@@ -7,18 +7,15 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
 
 ![](https://nico-opendata.jp/assets/img/casestudy/3dpose_gan/mpii-result.png)
 
-## Run Inference (with openpose)
+## Run Inference for demo (with openpose)
 
 1. Download openpose pretrained model
     * openpose_pose_coco.prototxt
         * https://github.com/opencv/opencv_extra/blob/3.4.1/testdata/dnn/openpose_pose_coco.prototxt
     * pose_iter_440000.caffemodel
         * http://posefs1.perception.cs.cmu.edu/OpenPose/models/pose/coco/pose_iter_440000.caffemodel
-2. Download 3dpose_gan pretrained model
-    * gen_epoch_500.npz
-        * TBA
-3. Run Inference
-    * ` python bin/demo.py your/image.png --lift_model gen_epoch_500.npz --model pose_iter_440000.caffemodel --proto2d pose_deploy_linevec.prototxt`
+2. Run Inference
+    * ` python bin/demo.py your/image.png --lift_model sample/gen_epoch_500.npz --model pose_iter_440000.caffemodel --proto2d pose_deploy_linevec.prototxt`
     * **Need OpenCV >= 3.4**
         * < 3.3 results extreamly wrong estimation
 
