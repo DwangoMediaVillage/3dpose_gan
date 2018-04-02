@@ -5,7 +5,7 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
 
 ![](https://nico-opendata.jp/assets/img/casestudy/3dpose_gan/system.png)
 
-![](https://nico-opendata.jp/assets/img/casestudy/3dpose_gan/mpii-result.png)
+![](https://nico-opendata.jp/assets/img/casestudy/3dpose_gan/mpii.jpg)
 
 ## Run Inference for demo (with openpose)
 
