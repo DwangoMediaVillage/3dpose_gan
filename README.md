@@ -26,6 +26,9 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
   - ChainerUI 0.1.0
   - tqdm 4.19.5
   - OpenCV 3.4 with ffmpeg
+  - git-lfs
+    - to download pre-trained model
+    - or you can download pre-trained model directory from [https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true](https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true)
 
 ## Training
 
