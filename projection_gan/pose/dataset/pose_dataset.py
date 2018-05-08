@@ -3,6 +3,7 @@
 # Copyright (c) 2017 Yasunori Kudo
 
 import copy
+import os
 import pickle
 
 import chainer
@@ -10,7 +11,8 @@ import numpy as np
 
 from . import pose_dataset_base
 
-# Joints in H3.6M -- data has 32 joints, but only 17 that move; these are the indices.
+# Joints in H3.6M -- data has 32 joints,
+# but only 17 that move; these are the indices.
 H36M_NAMES = [''] * 32
 H36M_NAMES[0] = 'Hip'
 H36M_NAMES[1] = 'RHip'
@@ -60,10 +62,12 @@ def project_point_radial(P, R, T, f, c, k, p):
     XX = X[:2, :] / X[2, :]
     r2 = XX[0, :] ** 2 + XX[1, :] ** 2
 
-    radial = 1 + np.einsum('ij,ij->j', np.tile(k, (1, N)), np.array([r2, r2 ** 2, r2 ** 3]))
+    radial = 1 + np.einsum(
+        'ij,ij->j', np.tile(k, (1, N)), np.array([r2, r2 ** 2, r2 ** 3]))
     tan = p[0] * XX[1, :] + p[1] * XX[0, :]
 
-    XXX = XX * np.tile(radial + tan, (2, 1)) + np.outer(np.array([p[1], p[0]]).reshape(-1), r2)
+    XXX = XX * np.tile(radial + tan, (2, 1)) + \
+        np.outer(np.array([p[1], p[0]]).reshape(-1), r2)
 
     Proj = (f * XXX) + c
     Proj = Proj.T
@@ -73,23 +77,46 @@ def project_point_radial(P, R, T, f, c, k, p):
     return Proj, D, radial, tan, r2
 
 
-class PoseDataset(pose_dataset_base.PoseDatasetBase):
+class H36M(pose_dataset_base.PoseDatasetBase):
 
-    def __init__(self, action='all', length=1, train=True, use_sh_detection=False):
+    def __init__(self, action='all', length=1,
+                 train=True, use_sh_detection=False):
         if train:
             subjects = ['S1', 'S5', 'S6', 'S7', 'S8']
         else:
             subjects = ['S9', 'S11']
 
+        if not os.path.exists('data/h36m'):
+            os.mkdir('data/h36m')
+
         # 3Dポイント
-        with open('data/points_3d.pickle', 'rb') as f:
+        if not os.path.exists('data/h36m/points_3d.pkl'):
+            print('Downloading 3D points in Human3.6M dataset.')
+            os.system('wget --no-check-certificate "https://onedriv' + \
+                'e.live.com/download?cid=B08D60FE71FF90FD&resid=B08' + \
+                'D60FE71FF90FD%2118616&authkey=AFIfEB6VYEZnhlE" -O ' + \
+                'data/h36m/points_3d.pkl')
+        with open('data/h36m/points_3d.pkl', 'rb') as f:
             p3d = pickle.load(f)
         # カメラパラメータ
-        with open('data/cameras.pickle', 'rb') as f:
+        if not os.path.exists('data//h36m/cameras.pkl'):
+            print('Downloading camera parameters.')
+            os.system('wget --no-check-certificate "https://onedriv' + \
+                'e.live.com/download?cid=B08D60FE71FF90FD&resid=B08' + \
+                'D60FE71FF90FD%2118615&authkey=AEUoi3s16rBTFRA" -O ' + \
+                'data/h36m/cameras.pkl')
+        with open('data//h36m/cameras.pkl', 'rb') as f:
             cams = pickle.load(f)
         # StackedHourglassによる検出結果
-        with open('data/sh_detect.pickle', 'rb') as f:
-            p2d_sh = pickle.load(f)
+        if use_sh_detection:
+            print('Downloading detected 2D points by Stacked Hourglass.')
+            if not os.path.exists('data/h36m/sh_detect_2d.pkl'):
+                os.system('wget --no-check-certificate "https://onedriv' + \
+                    'e.live.com/download?cid=B08D60FE71FF90FD&resid=B08' + \
+                    'D60FE71FF90FD%2118619&authkey=AMBf6RPcWQgjsh0" -O ' + \
+                    'data/h36m/sh_detect_2d.pkl')
+            with open('data/h36m/sh_detect_2d.pkl', 'rb') as f:
+                p2d_sh = pickle.load(f)
 
         with open('data/actions.txt') as f:
             actions_all = f.read().split('\n')[:-1]
@@ -104,7 +131,8 @@ class PoseDataset(pose_dataset_base.PoseDatasetBase):
         dim_to_use_x = np.where(np.array([x != '' for x in H36M_NAMES]))[0] * 3
         dim_to_use_y = dim_to_use_x + 1
         dim_to_use_z = dim_to_use_x + 2
-        dim_to_use = np.array([dim_to_use_x, dim_to_use_y, dim_to_use_z]).T.flatten()
+        dim_to_use = np.array(
+            [dim_to_use_x, dim_to_use_y, dim_to_use_z]).T.flatten()
         self.N = len(dim_to_use_x)
 
         p3d = copy.deepcopy(p3d)
@@ -131,16 +159,21 @@ class PoseDataset(pose_dataset_base.PoseDatasetBase):
                     for cam_name in cams[s].keys():
                         if not (cam_name == '54138969' and s == 'S11' \
                                 and action_name == 'Directions'):
-                            for start_pos in range(0, L - length + 1, 5):  # 50Hz -> 10Hz
-                                info = {'subject': s, 'action_name': action_name,
-                                        'start_pos': start_pos, 'length': length,
-                                        'cam_name': cam_name, 'file_name': file_name}
+                            # 50Hz -> 10Hz
+                            for start_pos in range(0, L - length + 1, 5):
+                                info = {'subject': s,
+                                        'action_name': action_name,
+                                        'start_pos': start_pos,
+                                        'length': length,
+                                        'cam_name': cam_name,
+                                        'file_name': file_name}
                                 self.data_list.append(info)
         self.p3d = p3d
         self.cams = cams
-        self.p2d_sh = p2d_sh
         self.train = train
         self.use_sh_detection = use_sh_detection
+        if use_sh_detection:
+            self.p2d_sh = p2d_sh
 
     def __len__(self):
         return len(self.data_list)
@@ -148,7 +181,6 @@ class PoseDataset(pose_dataset_base.PoseDatasetBase):
     def get_example(self, i):
         info = self.data_list[i]
         subject = info['subject']
-        action_name = info['action_name']
         start_pos = info['start_pos']
         length = info['length']
         cam_name = info['cam_name']
@@ -161,34 +193,31 @@ class PoseDataset(pose_dataset_base.PoseDatasetBase):
                 file_name = file_name.replace('TakingPhoto', 'Photo')
             if 'WalkingDog' in file_name:
                 file_name = file_name.replace('WalkingDog', 'WalkDog')
-            sh_detect_xy = self.p2d_sh[subject][file_name][cam_name][start_pos:start_pos+length]
+            sh_detect_xy = self.p2d_sh[subject][file_name]
+            sh_detect_xy = sh_detect_xy[cam_name][start_pos:start_pos+length]
 
         # カメラ位置からの平行投影
         P = poses_xyz.reshape(-1, 3)
         X = params['R'].dot(P.T).T
         X = X.reshape(-1, self.N * 3)  # shape=(length, 3*n_joints)
 
+        # Normalization of 3d points.
         X, scale = self._normalize_3d(X)
+        X = X.astype(np.float32)
+        scale = scale.astype(np.float32)
 
-        if not self.use_sh_detection:
+        if self.use_sh_detection:
+            # StackedHourglassにより検出されたPoseの正規化
+            sh_detect_xy = self._normalize_2d(sh_detect_xy)
+            sh_detect_xy = sh_detect_xy.astype(np.float32)
+            return sh_detect_xy, X, scale
+        else:
             # カメラパラメータを用いた画像上への投影
             proj = project_point_radial(P, **params)[0]
             proj = proj.reshape(-1, self.N * 2)  # shape=(length, 2*n_joints)
             proj = self._normalize_2d(proj)
-            return proj, X, scale.astype(np.float32)
-
-        else:
-            # StackedHourglassにより検出されたPoseの正規化
-            # hip(0)と各関節点の距離の平均値が1になるようにスケール
-            xs = sh_detect_xy.T[0::2] - sh_detect_xy.T[0]
-            ys = sh_detect_xy.T[1::2] - sh_detect_xy.T[1]
-            sh_detect_xy = sh_detect_xy.T / np.sqrt(xs[1:]**2 + ys[1:]**2).mean(axis=0)
-            # hip(0)が原点になるようにシフト
-            sh_detect_xy[0::2] -= sh_detect_xy[0]
-            sh_detect_xy[1::2] -= sh_detect_xy[1]
-            sh_detect_xy = sh_detect_xy.T.astype(np.float32)[None]
-
-            return sh_detect_xy, X, scale.astype(np.float32)
+            proj = proj.astype(np.float32)
+            return proj, X, scale
 
 
 class MPII(chainer.dataset.DatasetMixin):
@@ -225,3 +254,43 @@ class MPII(chainer.dataset.DatasetMixin):
         dummy_scale = np.array([1], dtype=np.float32)
 
         return mpii_poses, dummy_X, dummy_scale
+
+
+if __name__ == '__main__':
+    # For test
+    import sys
+    sys.path.append('/home/ykudo/codes/3dpose_gan')
+    from bin.evaluation_util import create_img
+    import subprocess
+    import cv2
+    import numpy as np
+    a = H36M(train=False, use_sh_detection=True)
+    info = {'subject': 'S1',
+            'action_name': 'Directions',
+            'start_pos': 100,
+            'length': 1,
+            'cam_name': '60457274',
+            'file_name': 'Directions'}
+    for i, data in enumerate(a.data_list):
+        print(data)
+        if data == info:
+            print(i)
+            break
+    print(i)
+    video_path = os.path.join('/home/ykudo/datasets/h36m', info['subject'],
+        'Videos', '{}.{}.mp4'.format(info['file_name'], info['cam_name']))
+    cap = cv2.VideoCapture(video_path)
+    for _ in range(info['start_pos']):
+        ret, frame = cap.read()
+    _, buf = cv2.imencode('.png', cv2.resize(frame, (frame.shape[1] // 3, frame.shape[0] // 3)))
+    subprocess.run('imgcat', input=buf.tobytes())
+    print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    print(a.p2d_sh[info['subject']][info['file_name']][info['cam_name']].shape)
+    print(a.p3d[info['subject']][info['file_name']].shape)
+    proj, X, scale = a[i]
+    img1 = create_img(proj[0])
+    img2 = create_img(X[0].reshape(-1, 3)[:, :2].flatten())
+    img = np.concatenate((img1, img2), axis=1)
+    _, buf = cv2.imencode('.png', cv2.resize(img, (140, 120)))
+    subprocess.run('imgcat', input=buf.tobytes())
+    import pdb; pdb.set_trace()

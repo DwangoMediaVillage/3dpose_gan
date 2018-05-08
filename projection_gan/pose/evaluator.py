@@ -5,7 +5,6 @@
 import copy
 
 import chainer
-from chainer import cuda
 from chainer import function
 import chainer.functions as F
 from chainer import reporter as reporter_module
@@ -32,29 +31,24 @@ class Evaluator(extensions.Evaluator):
         for batch in it:
             observation = {}
             with reporter_module.report_scope(observation):
-                xy, xyz, scale = self.converter(batch, self.device)
+                xy_proj, xyz, scale = self.converter(batch, self.device)
+                xy_proj, xyz = xy_proj[:, 0], xyz[:, 0]
                 with function.no_backprop_mode(), \
                         chainer.using_config('train', False):
-                    xy_real = xy
+                    xy_real = chainer.Variable(xy_proj)
                     z_pred = gen(xy_real)
-                    mse = F.mean_squared_error(z_pred, xyz[:, :, :, 2::3])
-                    chainer.report({'mse': mse}, gen)
+                    z_mse = F.mean_squared_error(z_pred, xyz[:, 2::3])
+                    chainer.report({'z_mse': z_mse}, gen)
 
-                    xx = gen.xp.power(xyz[:, :, :, 0::3] - xy[:, :, :, 0::2], 2)
-                    yy = gen.xp.power(xyz[:, :, :, 1::3] - xy[:, :, :, 1::2], 2)
-                    zz1 = gen.xp.power(xyz[:, :, :, 2::3] - z_pred.data, 2)
-                    zz2 = gen.xp.power(xyz[:, :, :, 2::3] + z_pred.data, 2)
+                    lx = gen.xp.power(xyz[:, 0::3] - xy_proj[:, 0::2], 2)
+                    ly = gen.xp.power(xyz[:, 1::3] - xy_proj[:, 1::2], 2)
+                    lz = gen.xp.power(xyz[:, 2::3] - z_pred.data, 2)
 
-                    m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
-                    m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
-                    mae = gen.xp.where(m1 < m2, m1, m2)
-
-                    m1 *= scale
-                    mae *= scale
-                    m1 = gen.xp.mean(m1)
-                    mae = gen.xp.mean(mae)
-                    chainer.report({'mae1': m1}, gen)
-                    chainer.report({'mae2': mae}, gen)
+                    euclidean_distance = gen.xp.sqrt(lx + ly + lz).mean(axis=1)
+                    euclidean_distance *= scale[:, 0]
+                    euclidean_distance = gen.xp.mean(euclidean_distance)
+                    chainer.report(
+                        {'euclidean_distance': euclidean_distance}, gen)
             summary.add(observation)
 
         return summary.compute_mean()
