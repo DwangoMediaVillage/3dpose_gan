@@ -1,0 +1,15 @@
+Directions
+Discussion
+Eating
+Greeting
+Phoning
+Photo
+Posing
+Purchases
+Sitting
+SittingDown
+Smoking
+Waiting
+WalkDog
+Walking
+WalkTogether
