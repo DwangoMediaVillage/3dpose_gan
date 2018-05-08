@@ -16,8 +16,7 @@ class Normalization(object):
         pose[0::3] -= pose[0].copy()
         pose[1::3] -= pose[1].copy()
         pose[2::3] -= pose[2].copy()
-        pose = pose.T.astype(np.float32)[None]
-        return pose, scale
+        return pose.T, scale
 
     @staticmethod
     def normalize_2d(pose):
@@ -31,8 +30,7 @@ class Normalization(object):
         mu_y = pose[1].copy()
         pose[0::2] -= mu_x
         pose[1::2] -= mu_y
-        pose = pose.T.astype(np.float32)[None]
-        return pose
+        return pose.T
 
 
 class PoseDatasetBase(chainer.dataset.DatasetMixin):

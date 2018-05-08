@@ -1,4 +1,3 @@
-import chainer
 import glob
 
 import numpy

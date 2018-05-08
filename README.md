@@ -20,20 +20,36 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
         * < 3.3 results extreamly wrong estimation
 
 ## Dependencies(Recommended versions)
-  - Python 3.6.1
-  - Cupy 2.2.0
-  - Chainer 3.2.0
-  - ChainerUI 0.1.0
-  - tqdm 4.19.5
-  - OpenCV 3.4 with ffmpeg
+  - Python 3.6.5
+  - Cupy 4.0.0
+  - Chainer 4.0.0
+  - OpenCV 3.4 (when showing results)
   - git-lfs
     - to download pre-trained model
     - or you can download pre-trained model directory from [https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true](https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true)
 
 ## Training
+#### Human3.6M dataset
+  - [x] Unsupervised learning of 3D points from ground truth 2D points
 
+    ```
+    python bin/train.py --gpu 0 --mode unsupervised --dataset h36m --use_heuristic_loss
+    ```
+  - [ ] Unsupervised learning of 3D points from detected 2D points by Stacked Hourglass
+
+    TBA
+
+  - [x] Supervised learning of 3D points from ground truth 2D points
+
+    ```
+    python bin/train.py --gpu 0 --mode supervised --activate_func relu --use_bn
+    ```
+
+#### MPII dataset
+TBA
+
+#### MPI-INF-3DHP dataset
 TBA
 
 ## Evaluation
-
 TBA

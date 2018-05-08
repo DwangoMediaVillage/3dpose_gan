@@ -1,3 +1,2 @@
-chainer > 3.0
-chainerui
-tqdm
+chainer == 4.0.0
+cupy == 4.0.0
