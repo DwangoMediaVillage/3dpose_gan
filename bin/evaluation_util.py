@@ -4,6 +4,7 @@ import os
 import numpy as np
 import cv2
 import chainer
+import chainer.functions as F
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import projection_gan
@@ -16,15 +17,9 @@ class JointsForPCK(object):
     from_h36m_joints = [1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 14, 15, 16]
 
 
-def load_model(options):
-    if options.nn == 'conv':
-        model = projection_gan.pose.posenet.ConvAE(
-            l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
-            bn=options.bn, activate_func=getattr(chainer.functions, options.act_func))
-    elif options.nn == 'linear':
-        model = projection_gan.pose.posenet.Linear(
-            l_latent=options.l_latent, l_seq=options.l_seq, mode='generator',
-            bn=options.bn, activate_func=getattr(chainer.functions, options.act_func))
+def load_model(opts):
+    model = projection_gan.pose.posenet.MLP(mode='generator',
+        use_bn=opts['use_bn'], activate_func=getattr(F, opts['activate_func']))
     return model
 
 
@@ -59,15 +54,17 @@ def create_projection_img(array, theta):
     return create_img(0, 0, chainer.Variable(fake))
 
 
-def create_img(j, i, variable):
-    ps = np.array([0, 1, 2, 0, 4, 5, 0, 7, 8, 9, 8, 11, 12, 8, 14, 15])
-    qs = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-    xs = variable.data[j, 0, i, 0::2].copy()
-    ys = variable.data[j, 0, i, 1::2].copy()
-    xs *= 100
+def create_img(arr):
+    ps = [0, 1, 2, 0, 4, 5, 0, 7, 8, 9, 8, 11, 12, 8, 14, 15]
+    qs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    xs = arr[0::2].copy()
+    ys = arr[1::2].copy()
+    xs *= 80
     xs += 100
-    ys *= 100
+    ys *= 80
     ys += 150
+    xs = xs.astype('i')
+    ys = ys.astype('i')
     img = np.zeros((350, 200, 3), dtype=np.uint8) + 160
     img = cv2.line(img, (100, 0), (100, 350), (255, 255, 255), 1)
     img = cv2.line(img, (0, 150), (200, 150), (255, 255, 255), 1)
@@ -75,9 +72,9 @@ def create_img(j, i, variable):
     for i, (p, q) in enumerate(zip(ps, qs)):
         c = 1 / (len(ps) - 1) * i
         b, g, r = color_jet(c)
-        img = cv2.line(img, (int(xs[p]), int(ys[p])), (int(xs[q]), int(ys[q])), (b, g, r), 2)
+        img = cv2.line(img, (xs[p], ys[p]), (xs[q], ys[q]), (b, g, r), 2)
     for i in range(17):
         c = 1 / 16 * i
         b, g, r = color_jet(c)
-        img = cv2.circle(img, (int(xs[i]), int(ys[i])), 3, (b, g, r), 3)
+        img = cv2.circle(img, (xs[i], ys[i]), 3, (b, g, r), 3)
     return img
