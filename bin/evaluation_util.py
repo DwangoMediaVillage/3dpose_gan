@@ -44,14 +44,13 @@ def color_jet(x):
 
 
 def create_projection_img(array, theta):
-    x = array[:, :, :, 0::3]
-    y = array[:, :, :, 1::3]
-    z = array[:, :, :, 2::3]
+    x = array[:, 0::3]
+    y = array[:, 1::3]
+    z = array[:, 2::3]
 
     xx = x * np.cos(theta) + z * np.sin(theta)
-    fake = np.stack((xx, y), axis=-1)
-    fake = np.reshape(fake, (*y.shape[:3], -1))
-    return create_img(0, 0, chainer.Variable(fake))
+    fake = np.stack((xx, y), axis=-1).flatten()
+    return create_img(fake)
 
 
 def create_img(arr):
