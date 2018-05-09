@@ -142,18 +142,18 @@ class OpenPose(object):
 
 def create_pose(model, points):
     with chainer.no_backprop_mode(), chainer.using_config('train', False):
-        x = points[:, :, :, 0::2]
-        y = points[:, :, :, 1::2]
+        x = points[:, 0::2]
+        y = points[:, 1::2]
         z_pred = model(points).data
 
         pose = np.stack((x, y, z_pred), axis=-1)
-        pose = np.reshape(pose, (*pose.shape[:3], -1))
+        pose = np.reshape(pose, (len(points), -1))
 
         return pose
 
 
 def main(args):
-    model = evaluation_util.load_model(args)
+    model = evaluation_util.load_model(vars(args))
     chainer.serializers.load_npz(args.lift_model, model)
     cap = cv.VideoCapture(args.input if args.input else 0)
 
@@ -165,7 +165,7 @@ def main(args):
     points = [np.array(vec) for vec in points]
     BODY_PARTS, POSE_PAIRS = parts(args)
     points = np.float32(to36M(points, BODY_PARTS))
-    points = np.reshape(points, [1, 1, -1])
+    points = np.reshape(points, [1, -1])
     points = projection_gan.pose.dataset.pose_dataset.pose_dataset_base.Normalization.normalize_2d(points)
     pose = create_pose(model, points)
 
@@ -191,11 +191,7 @@ if __name__ == '__main__':
     parser.add_argument('--lift_model', type=str, required=True)
     parser.add_argument('--dataset', type=str, default="COCO")
 
-    parser.add_argument('--l_latent', type=int, default=64)
-    parser.add_argument('--l_seq', type=int, default=1)
-    parser.add_argument('--act_func', type=str, default='leaky_relu')
-    parser.add_argument('--bn', action="store_true")
-    parser.add_argument('--nn', type=str, default='linear', choices=['linear', 'conv'],
-                        help='使用するモデルの選択')
+    parser.add_argument('--activate_func', type=str, default='leaky_relu')
+    parser.add_argument('--use_bn', action="store_true")
     args = parser.parse_args()
     main(args)
