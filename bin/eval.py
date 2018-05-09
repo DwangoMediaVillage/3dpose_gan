@@ -11,8 +11,8 @@ from chainer import serializers
 import chainer.functions as F
 
 import argparse
+import json
 import os
-import pickle
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -30,74 +30,54 @@ if __name__ == '__main__':
 
     # 学習時のオプションの読み込み
     with open(os.path.join(
-            os.path.dirname(args.model_path), 'options.pickle'), 'rb') as f:
-        opts = pickle.load(f)
+            os.path.dirname(args.model_path), 'options.json')) as f:
+        opts = json.load(f)
 
     # モデルの定義
-    if opts.nn == 'conv':
-        gen = projection_gan.pose.posenet.ConvAE(l_latent=opts.l_latent, l_seq=opts.l_seq,
-                                                 bn=opts.bn,
-                                                 activate_func=getattr(F, opts.act_func),
-                                                 vertical_ksize=opts.vertical_ksize)
-    elif opts.nn == 'linear':
-        gen = projection_gan.pose.posenet.Linear(
-            l_latent=opts.l_latent, l_seq=opts.l_seq,
-            bn=opts.bn, activate_func=getattr(F, opts.act_func))
+    gen = projection_gan.pose.posenet.MLP(mode='generator',
+        use_bn=opts['use_bn'], activate_func=getattr(F, opts['activate_func']))
     serializers.load_npz(args.model_path, gen)
     if args.gpu >= 0:
         cuda.get_device(args.gpu).use()
         gen.to_gpu()
 
     # 行動クラスの読み込み
-    if opts.action == 'all':
-        with open('data/actions.txt') as f:
+    if opts['action'] == 'all':
+        with open(os.path.join('data', 'actions.txt')) as f:
             actions = f.read().split('\n')[:-1]
     else:
-        actions = [opts.action]
+        actions = [opts['action']]
 
     # 各行動クラスに対して平均エラー(mm)を算出
     errors = []
     for act_name in actions:
-        test = projection_gan.pose.dataset.pose_dataset.PoseDataset(
-            opts.root, action=act_name, length=opts.l_seq,
-            train=False, noise_scale=opts.noise_scale)
+        test = projection_gan.pose.dataset.pose_dataset.H36M(
+            action=act_name, length=1, train=False,
+            use_sh_detection=opts['use_sh_detection'])
         test_iter = iterators.MultiprocessIterator(
             test, args.batchsize, repeat=False, shuffle=False)
-        maes = []
+        eds = []
         for batch in test_iter:
-            xy, z, scale, noise = dataset.concat_examples(batch, device=args.gpu)
+            xy_proj, xyz, scale = dataset.concat_examples(
+                batch, device=args.gpu)
+            xy_proj, xyz = xy_proj[:, 0], xyz[:, 0]
             with chainer.no_backprop_mode(), \
-                 chainer.using_config('train', False):
-                xy_real = xy + noise
+                    chainer.using_config('train', False):
+                xy_real = chainer.Variable(xy_proj)
                 z_pred = gen(xy_real)
 
-            deg_sin = projection_gan.pose.updater.Updater.calculate_rotation(
-                chainer.Variable(xy_real), z_pred).data[:, :, :, 0]
+            lx = gen.xp.power(xyz[:, 0::3] - xy_proj[:, 0::2], 2)
+            ly = gen.xp.power(xyz[:, 1::3] - xy_proj[:, 1::2], 2)
+            lz = gen.xp.power(xyz[:, 2::3] - z_pred.data, 2)
 
-            # noiseがある場合はnoiseも評価に入れる
-            xx = gen.xp.power(noise[:, :, :, 0::2], 2)
-            yy = gen.xp.power(noise[:, :, :, 1::2], 2)
+            euclidean_distance = gen.xp.sqrt(lx + ly + lz).mean(axis=1)
+            euclidean_distance *= scale[:, 0]
+            euclidean_distance = gen.xp.mean(euclidean_distance)
 
-            # zを反転しない場合
-            zz1 = gen.xp.power(z - z_pred.data, 2)
-            m1 = gen.xp.sqrt(xx + yy + zz1).mean(axis=3)[:, 0]
-
-            if args.allow_inversion:
-                # zに-1を掛けて反転した場合のLoss
-                zz2 = gen.xp.power(z + z_pred.data, 2)
-                m2 = gen.xp.sqrt(xx + yy + zz2).mean(axis=3)[:, 0]
-
-                # sin値が負ならzに-1を掛けて反転した場合のLossを使用
-                mae = gen.xp.where(deg_sin[:, 0] >= 0, m1, m2)
-            else:
-                mae = m1
-
-            mae *= scale
-            mae = gen.xp.mean(mae)
-            maes.append(mae * len(batch))
+            eds.append(euclidean_distance * len(batch))
         test_iter.finalize()
-        print(act_name, sum(maes) / len(test))
-        errors.append(sum(maes) / len(test))
+        print(act_name, sum(eds) / len(test))
+        errors.append(sum(eds) / len(test))
     print('-' * 20)
     print('average', sum(errors) / len(errors))
 

@@ -52,4 +52,6 @@ TBA
 TBA
 
 ## Evaluation
-TBA
+```
+python bin/eval.py results/hoge/gen_epoch_*.npz
+```
