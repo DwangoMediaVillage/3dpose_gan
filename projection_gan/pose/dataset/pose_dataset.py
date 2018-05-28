@@ -109,8 +109,8 @@ class H36M(pose_dataset_base.PoseDatasetBase):
             cams = pickle.load(f)
         # StackedHourglassによる検出結果
         if use_sh_detection:
-            print('Downloading detected 2D points by Stacked Hourglass.')
             if not os.path.exists('data/h36m/sh_detect_2d.pkl'):
+                print('Downloading detected 2D points by Stacked Hourglass.')
                 os.system('wget --no-check-certificate "https://onedriv' + \
                     'e.live.com/download?cid=B08D60FE71FF90FD&resid=B08' + \
                     'D60FE71FF90FD%2118619&authkey=AMBf6RPcWQgjsh0" -O ' + \
@@ -153,7 +153,6 @@ class H36M(pose_dataset_base.PoseDatasetBase):
                 if action_name == 'WalkDog':
                     files += search('WalkingDog')
                 for file_name in files:
-                    p3d[s][file_name] = p3d[s][file_name][::5]  # 50Hz -> 10Hz
                     p3d[s][file_name] = p3d[s][file_name][:, dim_to_use]
                     L = p3d[s][file_name].shape[0]
                     for cam_name in cams[s].keys():
@@ -254,43 +253,3 @@ class MPII(chainer.dataset.DatasetMixin):
         dummy_scale = np.array([1], dtype=np.float32)
 
         return mpii_poses, dummy_X, dummy_scale
-
-
-if __name__ == '__main__':
-    # For test
-    import sys
-    sys.path.append('/home/ykudo/codes/3dpose_gan')
-    from bin.evaluation_util import create_img
-    import subprocess
-    import cv2
-    import numpy as np
-    a = H36M(train=False, use_sh_detection=True)
-    info = {'subject': 'S1',
-            'action_name': 'Directions',
-            'start_pos': 100,
-            'length': 1,
-            'cam_name': '60457274',
-            'file_name': 'Directions'}
-    for i, data in enumerate(a.data_list):
-        print(data)
-        if data == info:
-            print(i)
-            break
-    print(i)
-    video_path = os.path.join('/home/ykudo/datasets/h36m', info['subject'],
-        'Videos', '{}.{}.mp4'.format(info['file_name'], info['cam_name']))
-    cap = cv2.VideoCapture(video_path)
-    for _ in range(info['start_pos']):
-        ret, frame = cap.read()
-    _, buf = cv2.imencode('.png', cv2.resize(frame, (frame.shape[1] // 3, frame.shape[0] // 3)))
-    subprocess.run('imgcat', input=buf.tobytes())
-    print(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    print(a.p2d_sh[info['subject']][info['file_name']][info['cam_name']].shape)
-    print(a.p3d[info['subject']][info['file_name']].shape)
-    proj, X, scale = a[i]
-    img1 = create_img(proj[0])
-    img2 = create_img(X[0].reshape(-1, 3)[:, :2].flatten())
-    img = np.concatenate((img1, img2), axis=1)
-    _, buf = cv2.imencode('.png', cv2.resize(img, (140, 120)))
-    subprocess.run('imgcat', input=buf.tobytes())
-    import pdb; pdb.set_trace()
