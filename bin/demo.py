@@ -11,7 +11,6 @@ import evaluation_util
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import projection_gan
 
-
 def to36M(bones, body_parts):
     H36M_JOINTS_17 = [
         'Hip',
@@ -70,6 +69,7 @@ def to36M(bones, body_parts):
                 raise Exception(name)
         else:
             adjusted_bones.append(bones[body_parts[name]])
+
     return adjusted_bones
 
 
@@ -117,7 +117,7 @@ class OpenPose(object):
         frameWidth = frame.shape[1]
         frameHeight = frame.shape[0]
         inp = cv.dnn.blobFromImage(frame, 1.0 / 255, (inWidth, inHeight),
-                                   (0, 0, 0), swapRB=False)
+                                   (0, 0, 0), swapRB=False, crop=False)
         self.net.setInput(inp)
         out = self.net.forward()
 
@@ -164,17 +164,19 @@ def main(args):
     points = [vec for vec in points]
     points = [np.array(vec) for vec in points]
     BODY_PARTS, POSE_PAIRS = parts(args)
-    points = np.float32(to36M(points, BODY_PARTS))
-    points = np.reshape(points, [1, -1])
-    points = projection_gan.pose.dataset.pose_dataset.pose_dataset_base.Normalization.normalize_2d(points)
-    pose = create_pose(model, points)
+    points = to36M(points, BODY_PARTS)
+    points = np.reshape(points, [1, -1]).astype('f')
+    points_norm = projection_gan.pose.dataset.pose_dataset.pose_dataset_base.Normalization.normalize_2d(points)
+    pose = create_pose(model, points_norm)
 
     out_directory = "demo_out"
     os.makedirs(out_directory, exist_ok=True)
-    split = 10
-    for i in range(split):
-        img = evaluation_util.create_projection_img(pose, np.pi * float(2) * i / split)
-        cv.imwrite(os.path.join(out_directory, "{:02d}.png".format(i)), img)
+    out_img = evaluation_util.create_img(points[0], frame)
+    cv.imwrite(os.path.join(out_directory, 'openpose_detect.jpg'), out_img)
+    deg = 15
+    for d in range(0, 360 + deg, deg):
+        img = evaluation_util.create_projection_img(pose, np.pi * d / 180.)
+        cv.imwrite(os.path.join(out_directory, "rot_{:03d}_degree.png".format(d)), img)
 
 
 if __name__ == '__main__':
