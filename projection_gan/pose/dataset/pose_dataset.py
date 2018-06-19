@@ -99,13 +99,13 @@ class H36M(pose_dataset_base.PoseDatasetBase):
         with open('data/h36m/points_3d.pkl', 'rb') as f:
             p3d = pickle.load(f)
         # カメラパラメータ
-        if not os.path.exists('data//h36m/cameras.pkl'):
+        if not os.path.exists('data/h36m/cameras.pkl'):
             print('Downloading camera parameters.')
             os.system('wget --no-check-certificate "https://onedriv' + \
                 'e.live.com/download?cid=B08D60FE71FF90FD&resid=B08' + \
                 'D60FE71FF90FD%2118615&authkey=AEUoi3s16rBTFRA" -O ' + \
                 'data/h36m/cameras.pkl')
-        with open('data//h36m/cameras.pkl', 'rb') as f:
+        with open('data/h36m/cameras.pkl', 'rb') as f:
             cams = pickle.load(f)
         # StackedHourglassによる検出結果
         if use_sh_detection:
