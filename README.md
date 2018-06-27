@@ -15,7 +15,7 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
     * pose_iter_440000.caffemodel
         * http://posefs1.perception.cs.cmu.edu/OpenPose/models/pose/coco/pose_iter_440000.caffemodel
 2. Run Inference
-    * ` python bin/demo.py sample/image.png --lift_model sample/gen_epoch_500.npz --model pose_iter_440000.caffemodel --proto2d openpose_pose_coco.prototxt`
+    * ` python bin/demo.py sample/image.png --lift_model sample/gen_epoch_500.npz --model2d pose_iter_440000.caffemodel --proto2d openpose_pose_coco.prototxt`
     * **Need OpenCV >= 3.4**
         * < 3.3 results extreamly wrong estimation
 
