@@ -15,7 +15,7 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
     * pose_iter_440000.caffemodel
         * http://posefs1.perception.cs.cmu.edu/OpenPose/models/pose/coco/pose_iter_440000.caffemodel
 2. Run Inference
-    * ` python bin/demo.py sample/image.png --lift_model sample/gen_epoch_500.npz --model2d pose_iter_440000.caffemodel --proto2d openpose_pose_coco.prototxt`
+    * ` python bin/demo.py sample/image.png --lift_model sample/gen_epoch_6.npz --model2d pose_iter_440000.caffemodel --proto2d openpose_pose_coco.prototxt`
     * **Need OpenCV >= 3.4**
         * < 3.3 results extreamly wrong estimation
 
@@ -27,7 +27,7 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
     - Note: OpenPose in OpenCV via pip (e.g. `pip install opencv-python`) does not work correctly. Plese build your OpenCV or use a conda package (`conda install -c conda-forge opencv` on [Anaconda3-4.4.0](https://repo.continuum.io/archive/) works fine for our environment.).
   - git-lfs
     - to download pre-trained model
-    - or you can download pre-trained model directory from [https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true](https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true)
+    - or you can download pre-trained model directory from [https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_6.npz?raw=true](https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_6.npz?raw=true)
 
 ## Training
 #### Human3.6M dataset
