@@ -23,7 +23,8 @@ This is the authors' implementation of [Unsupervised Adversarial Learning of 3D 
   - Python 3.6.5
   - Cupy 4.0.0
   - Chainer 4.0.0
-  - OpenCV 3.4 (when showing results)
+  - OpenCV 3.4 (only for demo)
+    - Note: OpenPose in OpenCV via pip (e.g. `pip install opencv-python`) does not work correctly. Plese build your OpenCV or use a conda package (`conda install -c conda-forge opencv` on [Anaconda3-4.4.0](https://repo.continuum.io/archive/) works fine for our environment.).
   - git-lfs
     - to download pre-trained model
     - or you can download pre-trained model directory from [https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true](https://github.com/DwangoMediaVillage/3dpose_gan/blob/master/sample/gen_epoch_500.npz?raw=true)
