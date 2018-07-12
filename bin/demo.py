@@ -161,10 +161,15 @@ def main(args):
     if not hasFrame:
         exit(0)
     points = OpenPose(args).predict(args, frame)
-    points = [vec for vec in points]
+
+    if None in points:
+        n_detect_key_points = sum([vec is not None for vec in points])
+        raise Exception('OpenPose could not detect enough key points. '
+            '{}/{} points were detected. Try another image.'.format(n_detect_key_points, len(points)))
     points = [np.array(vec) for vec in points]
     BODY_PARTS, POSE_PAIRS = parts(args)
-    points = to36M(points, BODY_PARTS)
+
+    points = to36M(points, BODY_PARTS)  # 19 points -> 17 points
     points = np.reshape(points, [1, -1]).astype('f')
     points_norm = projection_gan.pose.dataset.pose_dataset.pose_dataset_base.Normalization.normalize_2d(points)
     pose = create_pose(model, points_norm)
@@ -177,6 +182,7 @@ def main(args):
     for d in range(0, 360 + deg, deg):
         img = evaluation_util.create_projection_img(pose, np.pi * d / 180.)
         cv.imwrite(os.path.join(out_directory, "rot_{:03d}_degree.png".format(d)), img)
+    print("Saved result images in '{}'.".format(os.path.join(os.getcwd(), out_directory)))
 
 
 if __name__ == '__main__':
